@@ -54,30 +54,18 @@ exports.deleteEntranceQuestion = async function (questionid, accountid) {
 //Save Student Details
 exports.saveStusentEntrance = async function (student, userid) {
     return db.transaction(async function (conn) {
-    let result = await db.setQuery(conn, 'CALL SQSP_CreateEntrance(?,?,?,?,?,?,?,?,?,?,?)',
-        [student.fname,
-        student.lname,
-        student.cellnumber,
-        student.username,
-        student.password,
-        student.adharnumber,
-        student.dob,
-        student.class,
-        student.status,
-        student.userrole,
-        student.section
-        ]);
-    if (result[0][0].userid) {
+        let result = await db.setQuery(conn, 'INSERT into userdetails set ?',[student])
+    if (result.affectedRows == 1) {
         let student_teacherObj = {
             teacherid: userid,
-            studentid: result[0][0].userid
+            studentid: result.insertId
         }
         let studentteacher = await db.setQuery(conn, 'insert into student_teacher set ?', [student_teacherObj]);
         await db.setQuery(conn, 'insert into entranceresult set ?', [student_teacherObj]);
-
         return studentteacher;
+    }else{
+        return 0
     }
-    return result[0][0].userid;
 })
 }
 

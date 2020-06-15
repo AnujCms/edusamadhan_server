@@ -1,11 +1,13 @@
 const Joi = require("@hapi/joi").extend(require('@hapi/joi-date'));;
 
 const classIdParams = Joi.object({
-    classs: Joi.number().required()
+    classs: Joi.number().required(),
+    mediumType: Joi.number().required()
 })
 
 const classFeeObject = Joi.object({
     class: Joi.number().required().valid(1,2,3,4,5,6,7,8),
+    mediumType: Joi.number().required().valid(1,2),
     january: Joi.number().required(),
     february: Joi.number().required(),
     march: Joi.number().required(),
@@ -29,10 +31,15 @@ const adharAndMonthParams = Joi.object({
     selectedmonth: Joi.string().required().valid('january','february','march','april','may','june','july','august','september','october','november','december')
 })
 
+const feeObject = Joi.object({
+    value: Joi.string().required().valid('january','february','march','april','may','june','july','august','september','october','november','december'),
+    monthFee: Joi.number().required()
+})
+
 const monthFeeObject = Joi.object({
     adharnumber:Joi.string().max(12).min(12).required(),
-    selectedmonthfee: Joi.number().required(),
-    monthName: Joi.string().required().valid('january','february','march','april','may','june','july','august','september','october','november','december')
+    selectedMonthName: Joi.array().items(feeObject)
+    // monthName: Joi.string().required().valid('january','february','march','april','may','june','july','august','september','october','november','december')
 })
 
 const classIdAndSectionParams = Joi.object({
@@ -60,9 +67,15 @@ const expensedetailsidParams = Joi.object({
     expensedetailsid: Joi.number().required()
 })
 
+const feeDetailaObject = Joi.object({
+    adharnumber: Joi.number().required(),
+    mediumType: Joi.number().valid(1,2).required()
+})
+
 exports.classIdParams = classIdParams;
 exports.classFeeObject = classFeeObject;
 exports.adharNumberParams = adharNumberParams;
+exports.feeDetailaObject = feeDetailaObject;
 exports.adharAndMonthParams = adharAndMonthParams;
 exports.monthFeeObject = monthFeeObject;
 exports.classIdAndSectionParams = classIdAndSectionParams;

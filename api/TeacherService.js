@@ -12,8 +12,8 @@ function isTeacherOrExamHead(req, res, next) {
         return res.status(403).json({ status: 0, statusDescription: "Not Authenticated user." });
     }
 }
-function isTeacherOrExamHeadOrFeeAccount(req, res, next) {
-    if (req.user.role === UserEnum.UserRoles.Teacher || req.user.role === UserEnum.UserRoles.ExamHead || req.user.role === UserEnum.UserRoles.FeeAccount ) {
+function AllUsers(req, res, next) {
+    if (req.user.role === UserEnum.UserRoles.Principal || req.user.role === UserEnum.UserRoles.Teacher || req.user.role === UserEnum.UserRoles.ExamHead || req.user.role === UserEnum.UserRoles.FeeAccount || req.user.role === UserEnum.UserRoles.SuperAdmin || req.user.role === UserEnum.UserRoles.Student ) {
         next();
     } else {
         return res.status(403).json({ status: 0, statusDescription: "Not Authenticated user." });
@@ -45,7 +45,8 @@ const studentIdBody =  middleWare(joiSchema.studentIdBody, "body", true);
 const saveAttendanceObject =  middleWare(joiSchema.saveAttendanceObject, "body", true);
 const saveResultObject =  middleWare(joiSchema.saveResultObject, "body", true);
 const getResultObject =  middleWare(joiSchema.getResultObject, "params", true);
-
+const attendanceArray = middleWare(joiSchema.attendanceArray, 'body', false);
+const getAttendanceObj = middleWare(joiSchema.getAttendanceObj, "params", false);
 
 //Student Registration
 router.post("/studentRegistration", isTeacherOrExamHead, studentObject, async function (req, res) {
@@ -75,6 +76,7 @@ router.post("/studentRegistration", isTeacherOrExamHead, studentObject, async fu
         religion: req.body.religion,
         category: req.body.category,
         locality: req.body.locality,
+        mediumType: req.body.mediumType,
         localaddress: req.body.localaddress,
         parmanentaddress: req.body.parmanentaddress,
         userid: req.user.userid,
@@ -149,6 +151,7 @@ router.get("/getmystudents", isTeacherOrExamHead, async function (req, res) {
                 religion: row.religion,
                 category: row.category,
                 locality: row.locality,
+                mediumType: row.mediumType,
                 status: row.status,
                 images:row.images,
                 classid: row.classid,
@@ -316,7 +319,7 @@ router.post("/studentAttendance", isTeacherOrExamHead, isTeacherStudentRelatedBo
 router.get("/getfeedetailsforteacher", async function (req, res) {
     let result = await teacherDB.getFeeDetailsForTeacher(req.user.userid, JSON.parse(req.user.configdata).session, req.user.accountid);
     if (result) {
-        var resultObj = [];
+        var studentObj = [];
         var a = result.feeStructure[0];
         setRoute = (value) =>{
             let fee
@@ -327,35 +330,25 @@ router.get("/getfeedetailsforteacher", async function (req, res) {
             })
             return fee;
         }
-        if(result.feeStructure.length){
-            var feeSum = parseInt(a.january) + a.february + a.march + a.april + a.may + a.june + a.july + a.august + a.september + a.october + a.november + a.december;
-        }
 
-        result.submittedfee.forEach(function (row, index) {
-            resultObj.push({
-                studentid: row.studentid,
-                adharnumber: row.adharnumber,
-                january: row.january,
-                february: row.february,
-                march: row.march,
-                april: row.april,
-                may: row.may,
-                june: row.june,
-                july: row.july,
-                august: row.august,
-                september: row.september,
-                october: row.october,
-                november: row.november,
-                december: row.december,
-                submittedSum: row.january + row.february + row.march + row.april + row.may + row.june + row.july + row.august + row.september + row.october + row.november + row.december,
+        var feeSum = parseInt(a.january) + a.february + a.march + a.april + a.may + a.june + a.july + a.august + a.september + a.october + a.november + a.december;
+        result.student.map((item)=>{
+            studentObj.push({
+                name: encrypt.decrypt(item.firstname) + " " + encrypt.decrypt(item.lastname),
                 totalFee: feeSum,
-                name: encrypt.decrypt(result.student[index].firstname) + " " + encrypt.decrypt(result.student[index].lastname),
-                images: result.student[index].images,
-                busservice: result.student[index].busservice,
-                transport: result.student[index].busservice == 2&& setRoute(result.student[index].route)
-            });
-        });
-        res.status(200).json({ status: 1, statusDescription: resultObj });
+                busservice: item.busservice,
+                images: item.images,
+                studentid: item.studentid,
+                adharnumber: item.adharnumber,
+                transportFee: item.busservice == 2?setRoute(item.route):0
+            })
+        })
+        let dataToSend = {
+            studentData: studentObj,
+            studenttransportfee: result.studenttransportfee,
+            submittedfee:result.submittedfee
+        }
+        res.status(200).json({ status: 1, statusDescription: dataToSend });
     } else {
         res.status(200).json({ status: 0, statusDescription: "Not able to get the fee details." });
     }
@@ -441,7 +434,7 @@ router.get("/getstudentsattendance", isTeacherOrExamHead, async function (req, r
     }
 })
 //get teacher Details
-router.get("/getTeacherDetails", isTeacherOrExamHeadOrFeeAccount, async (req, res) => {
+router.get("/getTeacherDetails", AllUsers, async (req, res) => {
     let result = await teacherDB.getTeacherDetails(req.user.userid);
     if (result.length > 0) {
         var resultObj = {
@@ -463,7 +456,7 @@ router.get("/getTeacherDetails", isTeacherOrExamHeadOrFeeAccount, async (req, re
     }
 })
 //Update teacher profile
-router.post("/updateProfileDetails", isTeacherOrExamHeadOrFeeAccount, async (req, res) => {
+router.post("/updateProfileDetails", AllUsers, async (req, res) => {
     let changePassword = req.body.changePassword,
         oldPassword = req.body.oldPassword,
         newPassword = req.body.newPassword;
@@ -646,6 +639,56 @@ router.get('/getstudentresult/:studentid/:examinationType',isTeacherOrExamHead, 
     }
 });
 
+//save exam result of student
+router.post('/savestudentAttendance',isTeacherOrExamHead, attendanceArray, async function (req, res) {
+   let attendanceArray = []
+   req.body.attendanceArray.map((item)=>{
+       let array =[]
+       array.push(item.studentId)
+       array.push(req.user.userid)
+       array.push(JSON.parse(req.user.configdata).session)
+       array.push(item.attendanceDate)
+       array.push(item.attendance)
+       attendanceArray.push(array)
+   })
+    let result = await teacherDB.saveStudentAttendance(attendanceArray);
+    if (result) {
+        res.status(200).json({ status: 1, statusDescription: "Attendance has been saved successfully." });
+    } else {
+        res.status(200).json({ status: 0, statusDescription: "Attendance is not saved." });
+    }
+});
+
+//get class attendance by date
+router.get('/getClassAttendanceOfDate/:attendanceDate',isTeacherOrExamHead,  async function (req, res) {
+    let attendanceObj = {
+        teacherId: req.user.userid,
+        attendanceDate: req.params.attendanceDate,
+        session: JSON.parse(req.user.configdata).session
+    }
+    let result = await teacherDB.getClassAttendanceOfDate(attendanceObj);
+    if (result.length>0) {
+        res.status(200).json({ status: 1, statusDescription: result });
+    } else {
+        res.status(200).json({ status: 0, statusDescription: "Not able to get the result." });
+    }
+});
+
+//get class attendance of time period
+router.get('/getClassAttendanceOfSelecteddates/:startDate/:endDate',isTeacherOrExamHead, getAttendanceObj, async function (req, res) {
+    let attendanceObj = {
+        teacherId: req.user.userid,
+        startDate: req.params.startDate,
+        endDate: req.params.endDate,
+        session: JSON.parse(req.user.configdata).session
+    }
+    let result = await teacherDB.getClassAttendanceOfSelecteddates(attendanceObj);
+    if (result.length>0) {
+        res.status(200).json({ status: 1, statusDescription: result });
+    } else {
+        res.status(200).json({ status: 0, statusDescription: "Not able to get the attendance." });
+    }
+});
 /**
 * @swagger
 * paths:

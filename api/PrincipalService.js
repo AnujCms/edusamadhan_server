@@ -92,7 +92,7 @@ router.post("/createstaff", isPrincipal, staffObject, async function (req, res) 
             "tempPassword": password,
             "userRole": userRole
         }
-        publisher.publishEmailEventForCreateStaff(publishEvent);
+        // publisher.publishEmailEventForCreateStaff(publishEvent);
 
         result = await principalDB.updateTeacherDetails(req.body.teacherid, teacherObj);
     }else{
@@ -106,7 +106,7 @@ router.post("/createstaff", isPrincipal, staffObject, async function (req, res) 
         }
         result = await principalDB.createTeacher(teacherObj, req.user.userid, req.user.accountid);
         if(result == 1){
-            publisher.publishEmailEventForCreateStaff(publishEvent);
+            // publisher.publishEmailEventForCreateStaff(publishEvent);
         }
     }
     if (result == 1) {

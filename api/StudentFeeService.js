@@ -56,7 +56,7 @@ const classIdAndSectionParams =  middleWare(joiSchema.classIdAndSectionParams, "
 const transportFeeObject =  middleWare(joiSchema.transportFeeObject, "body", true);
 const transportIDParams =  middleWare(joiSchema.transportIDParams, "params", true);
 const expensedetailsidParams =  middleWare(joiSchema.expensedetailsidParams, "params", true);
-
+const feeDetailaObject = middleWare(joiSchema.feeDetailaObject, "params", true)
 //get fee details
 router.get("/getfeedetails", isAccountantOrTeacher, async function (req, res) {
     let result = await studentFeeDB.getFeeDetails(JSON.parse(req.user.configdata).session, req.user.accountid);
@@ -65,6 +65,7 @@ router.get("/getfeedetails", isAccountantOrTeacher, async function (req, res) {
         result.forEach(function (row) {
             resultObj.push({
                 class: row.class,
+                mediumType: row.mediumType,
                 january: row.january,
                 february: row.february,
                 march: row.march,
@@ -85,13 +86,14 @@ router.get("/getfeedetails", isAccountantOrTeacher, async function (req, res) {
     }
 })
 //get fee details by class
-router.get("/getfeedetailbyclass/:classs", isAccountantOrTeacher, classIdParams, async function (req, res) {
-    let result = await studentFeeDB.getFeeDetailByClass(JSON.parse(req.user.configdata).session, req.user.accountid, req.params.classs);
+router.get("/getfeedetailbyclass/:classs/:mediumType", isAccountantOrTeacher, classIdParams, async function (req, res) {
+    let result = await studentFeeDB.getFeeDetailByClass(JSON.parse(req.user.configdata).session, req.user.accountid, req.params.classs, req.params.mediumType);
     if (result.length > 0) {
         var resultObj = []
         result.forEach(function (row) {
             resultObj.push({
                 class: row.class,
+                mediumType: row.mediumType,
                 january: row.january,
                 february: row.february,
                 march: row.march,
@@ -115,6 +117,7 @@ router.get("/getfeedetailbyclass/:classs", isAccountantOrTeacher, classIdParams,
 router.post("/createfeeforselectedclass", isAccountant, classFeeObject, async function (req, res) {
     feeObject = {
         class: req.body.class,
+        mediumType: req.body.mediumType,
         january: req.body.january,
         february: req.body.february,
         march: req.body.march,
@@ -139,6 +142,7 @@ router.post("/createfeeforselectedclass", isAccountant, classFeeObject, async fu
 router.put("/updatefeedetails", isAccountant, classFeeObject, async function (req, res) {
     feeObject = {
         class: req.body.class,
+        mediumType: req.body.mediumType,
         january: req.body.january,
         february: req.body.february,
         march: req.body.march,
@@ -160,13 +164,13 @@ router.put("/updatefeedetails", isAccountant, classFeeObject, async function (re
     }
 })
 //get Student fee details
-router.get("/feedetails/:adharnumber", isAccountant, adharNumberParams, isStudentBelongsToSameSchool, async function (req, res) {
-    let result = await studentFeeDB.getStudentFeeDetails(req.params.adharnumber, JSON.parse(req.user.configdata).session, req.user.accountid, UserEnum.UserRoles.Student);
+router.get("/feedetails/:adharnumber/:mediumType", isAccountantOrTeacher, feeDetailaObject, isStudentBelongsToSameSchool, async function (req, res) {
+    let result = await studentFeeDB.getStudentFeeDetails(req.params.adharnumber, JSON.parse(req.user.configdata).session, req.user.accountid, UserEnum.UserRoles.Student, req.params.mediumType);
     if (result.student.length > 0) {
         var s = result.student[0];
-        var f = result.feeDetails[0];
+        var studentMonthFee = result.feeDetails[0];
+        let transportFee = result.transportFee[0];
         var str = result.feeStructure[0];
-
         var studentfeeData = {
             name: encrypt.decrypt(s.firstname) + " " + encrypt.decrypt(s.lastname),
             mothername: s.mothername,
@@ -175,7 +179,9 @@ router.get("/feedetails/:adharnumber", isAccountant, adharNumberParams, isStuden
             cellnumber: encrypt.decrypt(s.cellnumber),
             gender: s.gender,
             adharnumber: s.adharnumber,
-            busservice: s.busservice
+            busservice: s.busservice,
+            route: s.route,
+            mediumType: s.mediumType
         }
         if (result.feeStructure.length > 0) {
             var studentFeeStructure = {
@@ -195,23 +201,41 @@ router.get("/feedetails/:adharnumber", isAccountant, adharNumberParams, isStuden
         }
         if (result.feeDetails.length > 0) {
             var studentFeeDetails = {
-                jan: f.january,
-                feb: f.february,
-                mar: f.march,
-                apr: f.april,
-                may: f.may,
-                jun: f.june,
-                jul: f.july,
-                aug: f.august,
-                sep: f.september,
-                oct: f.october,
-                nov: f.november,
-                dec: f.december
+                jan: studentMonthFee.january!= null && JSON.parse(studentMonthFee.january)[0].schoolFee,
+                feb: studentMonthFee.february!= null && JSON.parse(studentMonthFee.february)[0].schoolFee,
+                mar: studentMonthFee.march!= null && JSON.parse(studentMonthFee.march)[0].schoolFee,
+                apr: studentMonthFee.april!= null && JSON.parse(studentMonthFee.april)[0].schoolFee,
+                may: studentMonthFee.may!= null && JSON.parse(studentMonthFee.may)[0].schoolFee,
+                jun: studentMonthFee.june!= null && JSON.parse(studentMonthFee.june)[0].schoolFee,
+                jul: studentMonthFee.july!= null && JSON.parse(studentMonthFee.july)[0].schoolFee,
+                aug: studentMonthFee.august!= null && JSON.parse(studentMonthFee.august)[0].schoolFee,
+                sep: studentMonthFee.september!= null && JSON.parse(studentMonthFee.september)[0].schoolFee,
+                oct: studentMonthFee.october!= null && JSON.parse(studentMonthFee.october)[0].schoolFee,
+                nov: studentMonthFee.november!= null && JSON.parse(studentMonthFee.november)[0].schoolFee,
+                dec: studentMonthFee.december!= null && JSON.parse(studentMonthFee.december)[0].schoolFee
             }
         } else {
             studentFeeDetails = {}
         }
-        res.status(200).json({ status: 1, studentfeeData: studentfeeData, studentFeeDetails: studentFeeDetails, studentFeeStructure: studentFeeStructure });
+        if (result.transportFee.length > 0) {
+            var transportFeeDetails = {
+                jan: transportFee.january!= null && JSON.parse(transportFee.january)[0].transportFee,
+                feb: transportFee.february!= null && JSON.parse(transportFee.february)[0].transportFee,
+                mar: transportFee.march!= null && JSON.parse(transportFee.march)[0].transportFee,
+                apr: transportFee.april!= null && JSON.parse(transportFee.april)[0].transportFee,
+                may: transportFee.may!= null && JSON.parse(transportFee.may)[0].transportFee,
+                jun: transportFee.june!= null && JSON.parse(transportFee.june)[0].transportFee,
+                jul: transportFee.july!= null && JSON.parse(transportFee.july)[0].transportFee,
+                aug: transportFee.august!= null && JSON.parse(transportFee.august)[0].transportFee,
+                sep: transportFee.september!= null && JSON.parse(transportFee.september)[0].transportFee,
+                oct: transportFee.october!= null && JSON.parse(transportFee.october)[0].transportFee,
+                nov: transportFee.november!= null && JSON.parse(transportFee.november)[0].transportFee,
+                dec: transportFee.december!= null && JSON.parse(transportFee.december)[0].transportFee
+            }
+        } else {
+            transportFeeDetails = {}
+        }
+        res.status(200).json({ status: 1, studentfeeData: studentfeeData, studentFeeDetails: studentFeeDetails, studentFeeStructure: studentFeeStructure, transportFeeDetails: transportFeeDetails });
     } else {
         res.status(200).json({ status: 0, statusDescription: "Not able to get fee details." });
     }
@@ -225,12 +249,59 @@ router.get("/getmonthlyfee/:adharnumber/:selectedmonth", isAccountant, adharAndM
         res.status(200).json({ status: 0, statusDescription: "Not able to get month." });
     }
 })
-//pay student fee
-router.post("/paystudentfee", isAccountant, monthFeeObject, isStudentBelongsToSameSchool, async function (req, res) {
-    let studentFeeObj = {
-        monthName: req.body.monthName,
-        selectedmonthfee: req.body.selectedmonthfee
+//get fee structure
+router.get("/getfeestructure/:adharnumber", isAccountant, isStudentBelongsToSameSchool, async function (req, res) {
+    let result = await studentFeeDB.getFeeStructure(req.params.adharnumber, JSON.parse(req.user.configdata).session, req.user.accountid, req.params.selectedmonth);
+    if (result.length > 0) {
+        res.status(200).json({ status: 1, statusDescription: result });
+    } else {
+        res.status(200).json({ status: 0, statusDescription: "Not able to get month." });
     }
+})
+//pay transport fee
+router.post("/paytransportfee", isAccountant, isStudentBelongsToSameSchool, async function (req, res) {
+    let transportFeeObj = {}
+    await req.body.selectedMonthName.forEach(async(item, index)=>{
+    let monthName= item.value;
+    if(monthName == 'january')transportFeeObj.january = JSON.stringify(item.transportFee)
+    else if(monthName == 'february')transportFeeObj.february = JSON.stringify(item.transportFee)
+    else if(monthName == 'march')transportFeeObj.march = JSON.stringify(item.transportFee)
+    else if(monthName == 'april')transportFeeObj.april = JSON.stringify(item.transportFee)
+    else if(monthName == 'may')transportFeeObj.may = JSON.stringify(item.transportFee)
+    else if(monthName == 'june')transportFeeObj.june = JSON.stringify(item.transportFee)
+    else if(monthName == 'july')transportFeeObj.july = JSON.stringify(item.transportFee)
+    else if(monthName == 'august')transportFeeObj.august = JSON.stringify(item.transportFee)
+    else if(monthName == 'september')transportFeeObj.september = JSON.stringify(item.transportFee)
+    else if(monthName == 'october')transportFeeObj.october = JSON.stringify(item.transportFee)
+    else if(monthName == 'november')transportFeeObj.november = JSON.stringify(item.transportFee)
+    else if(monthName == 'december')transportFeeObj.december = JSON.stringify(item.transportFee)
+    })
+    let result = await studentFeeDB.payTransportFee(req.body.adharnumber, JSON.parse(req.user.configdata).session, transportFeeObj);
+    if (result == 1) {
+        res.status(200).json({ status: 1, statusDescription: "Student fee has been submitted successfully." });
+    } else {
+        res.status(200).json({ status: 0, statusDescription: "Not able to submit the fee." });
+    }
+})
+
+//pay student fee
+router.post("/paystudentfee", isAccountant, isStudentBelongsToSameSchool, async function (req, res) {
+    let studentFeeObj = {}
+    await req.body.selectedMonthName.forEach(async(item, index)=>{
+    let monthName= item.value;
+    if(monthName == 'january')studentFeeObj.january = JSON.stringify(item.schoolFee)
+    else if(monthName == 'february')studentFeeObj.february = JSON.stringify(item.schoolFee)
+    else if(monthName == 'march')studentFeeObj.march = JSON.stringify(item.schoolFee)
+    else if(monthName == 'april')studentFeeObj.april = JSON.stringify(item.schoolFee)
+    else if(monthName == 'may')studentFeeObj.may = JSON.stringify(item.schoolFee)
+    else if(monthName == 'june')studentFeeObj.june = JSON.stringify(item.schoolFee)
+    else if(monthName == 'july')studentFeeObj.july = JSON.stringify(item.schoolFee)
+    else if(monthName == 'august')studentFeeObj.august = JSON.stringify(item.schoolFee)
+    else if(monthName == 'september')studentFeeObj.september = JSON.stringify(item.schoolFee)
+    else if(monthName == 'october')studentFeeObj.october = JSON.stringify(item.schoolFee)
+    else if(monthName == 'november')studentFeeObj.november = JSON.stringify(item.schoolFee)
+    else if(monthName == 'december')studentFeeObj.december = JSON.stringify(item.schoolFee)
+    })
     let result = await studentFeeDB.payStudentFee(req.body.adharnumber, JSON.parse(req.user.configdata).session, studentFeeObj);
     if (result == 1) {
         res.status(200).json({ status: 1, statusDescription: "Student fee has been submitted successfully." });
@@ -317,6 +388,7 @@ router.get("/getstudentslist/:classid/:sectionid", classIdAndSectionParams, asyn
                 religion: row.religion,
                 category: row.category,
                 locality: row.locality,
+                mediumType: row.mediumType,
                 status: row.status,
                 images:row.images,
                 classid: row.classid,
@@ -334,7 +406,7 @@ router.get("/getstudentslist/:classid/:sectionid", classIdAndSectionParams, asyn
 router.get("/getfullfeedetails/:classid/:sectionid", classIdAndSectionParams, async function (req, res) {
     let result = await studentFeeDB.getFullFeeDetails(req.user.accountid, req.params.classid, req.params.sectionid, JSON.parse(req.user.configdata).session);
     if (result) {
-        var resultObj = [];
+        var studentObj = [];
         var a = result.feeStructure[0];
         setRoute = (value) =>{
             let fee
@@ -345,32 +417,25 @@ router.get("/getfullfeedetails/:classid/:sectionid", classIdAndSectionParams, as
             })
             return fee;
         }
+
         var feeSum = parseInt(a.january) + a.february + a.march + a.april + a.may + a.june + a.july + a.august + a.september + a.october + a.november + a.december;
-        result.submittedfee.forEach(function (row, index) {
-            resultObj.push({
-                studentid: row.studentid,
-                adharnumber: row.adharnumber,
-                january: row.january,
-                february: row.february,
-                march: row.march,
-                april: row.april,
-                may: row.may,
-                june: row.june,
-                july: row.july,
-                august: row.august,
-                september: row.september,
-                october: row.october,
-                november: row.november,
-                december: row.december,
-                submittedSum: row.january + row.february + row.march + row.april + row.may + row.june + row.july + row.august + row.september + row.october + row.november + row.december,
+        result.student.map((item)=>{
+            studentObj.push({
+                name: encrypt.decrypt(item.firstname) + " " + encrypt.decrypt(item.lastname),
                 totalFee: feeSum,
-                name: encrypt.decrypt(result.student[index].firstname) + " " + encrypt.decrypt(result.student[index].lastname),
-                images: result.student[index].images,
-                busservice: result.student[index].busservice,
-                transport: result.student[index].busservice == 2&& setRoute(result.student[index].route)
-            });
-        });
-        res.status(200).json({ status: 1, statusDescription: resultObj });
+                busservice: item.busservice,
+                images: item.images,
+                studentid: item.studentid,
+                adharnumber: item.adharnumber,
+                transportFee: item.busservice == 2?setRoute(item.route):0
+            })
+        })
+        let dataToSend = {
+            studentData: studentObj,
+            studenttransportfee: result.studenttransportfee,
+            submittedfee:result.submittedfee
+        }
+        res.status(200).json({ status: 1, statusDescription: dataToSend });
     } else {
         res.status(200).json({ status: 0, statusDescription: "Not able to get the fee details." });
     }

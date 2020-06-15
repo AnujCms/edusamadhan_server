@@ -84,7 +84,7 @@ exports.saveStusentDetails = async function (student, userid, accountid) {
     return db.transaction(async function (conn) {
         let classData = await db.setQuery(conn, 'select classid, section, session from userdetails where userid = ?', userid);
         if (classData[0].classid) {
-            var result = await db.setQuery(conn, 'CALL SQSP_CreatePrescription(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)',
+            var result = await db.setQuery(conn, 'CALL SQSP_CreatePrescription(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)',
                 [student.firstname,
                 student.lastname,
                 student.mothername,
@@ -99,6 +99,7 @@ exports.saveStusentDetails = async function (student, userid, accountid) {
                 student.religion,
                 student.category,
                 student.locality,
+                student.mediumType,
                 student.localaddress,
                 student.parmanentaddress,
                 classData[0].classid,
@@ -109,31 +110,38 @@ exports.saveStusentDetails = async function (student, userid, accountid) {
                 student.busservice,
                 student.route
                 ]);
-            let attendanceObj = {
-                accountid: accountid,
-                teacherid: userid,
-                studentid: result[0][0].userid,
-                classid: classData[0].classid,
-                section: classData[0].section,
-                session: student.session
-            }
-            await db.setQuery(conn, 'insert into monthlyattendance set ?', [attendanceObj]);
+                console.log('result',result)
+                if(result){
+                    let attendanceObj = {
+                        accountid: accountid,
+                        teacherid: userid,
+                        studentid: result[0][0].userid,
+                        classid: classData[0].classid,
+                        section: classData[0].section,
+                        session: student.session
+                    }
+                    await db.setQuery(conn, 'insert into monthlyattendance set ?', [attendanceObj]);
+        
+                    let studentFeeObj = {
+                        adharnumber: student.adharnumber,
+                        session: student.session
+                    }
+        
+                    await db.setQuery(conn, 'insert into studentfee set ?', [studentFeeObj]);
+                    await db.setQuery(conn, 'insert into studenttransportfee set ?', [studentFeeObj]);
 
-            let studentFeeObj = {
-                adharnumber: student.adharnumber,
-                session: student.session
-            }
-
-            await db.setQuery(conn, 'insert into studentfee set ?', [studentFeeObj]);
-            if (result[0][0].userid) {
-                let student_teacherObj = {
-                    teacherid: userid,
-                    studentid: result[0][0].userid
+                    if (result[0][0].userid) {
+                        let student_teacherObj = {
+                            teacherid: userid,
+                            studentid: result[0][0].userid
+                        }
+                        let studentteacher = await db.setQuery(conn, 'insert into student_teacher set ?', [student_teacherObj]);
+                        return studentteacher.affectedRows;
+                    }
+                    return result[0][0].userid;
+                }else {
+                    return 0
                 }
-                let studentteacher = await db.setQuery(conn, 'insert into student_teacher set ?', [student_teacherObj]);
-                return studentteacher.affectedRows;
-            }
-            return result[0][0].userid;
         } else {
             return 0
         }
@@ -145,7 +153,7 @@ exports.updateStusentRecord = async function (student) {
     return db.transaction(async function (conn) {
         let classData = await db.setQuery(conn, 'select classid, section, session from userdetails where userid = ?', student.userid);
         if (classData[0].classid) {
-            var result = await db.setQuery(conn, 'CALL CSP_UpdateStudentData(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)',
+            var result = await db.setQuery(conn, 'CALL CSP_UpdateStudentData(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)',
                 [student.studentid,
                 student.firstname,
                 student.lastname,
@@ -157,6 +165,7 @@ exports.updateStusentRecord = async function (student) {
                 student.religion,
                 student.category,
                 student.locality,
+                student.mediumType,
                 student.localaddress,
                 student.parmanentaddress,
                 student.userid,
@@ -235,12 +244,14 @@ exports.getFeeDetailsForTeacher = function (userid, session, accountid) {
             })
             let sumFeeDetails = await db.setQuery(conn, `select * from feestructure where accountid = ? and class = ? and session = ?`, [accountid, student[0].classid, session]);
             let results = await db.setQuery(conn, `select * from studentfee where adharnumber IN(${adharArray}) and session = ?`, [session]);
+            let studenttransportfee = await db.setQuery(conn, `select * from studenttransportfee where adharnumber IN(${adharArray}) and session = ?`, [session]);
             let transport = await db.setQuery(conn, `select * from transportfee where transportfeeid IN(${routeArray}) and accountid = ? and session = ?`, [accountid, session]);
             let feeData = {
                 feeStructure: sumFeeDetails,
                 submittedfee: results,
                 student: student,
-                transport:transport
+                transport:transport,
+                studenttransportfee:studenttransportfee
             }
             return feeData;
         } else {
@@ -478,5 +489,42 @@ exports.saveStudentResult = async function(resultObject){
 //get the student results
 exports.getStudentResult = async function(resultObject){
     let Result = await db.query('select * from examresult where studentid = ? and teacherid=? and session = ? and examinationtype = ?', [resultObject.studentid, resultObject.teacherid, resultObject.session, resultObject.examinationtype]);
+    return Result;
+}
+
+//save the student results
+exports.saveStudentAttendance = async function(attendanceObj){
+    return db.transaction(async function (conn) {
+        let Result = await db.setQuery(conn, 'select * from studentAttendance where studentId = ? and teacherId=? and session = ? and attendanceDate = ?', [attendanceObj[0][0], attendanceObj[0][1], attendanceObj[0][2], attendanceObj[0][3]]);
+        if (Result.length > 0) {
+            if(attendanceObj.length>0){
+                let updateResult = ''
+                for(let i=0; i<attendanceObj.length; i++){
+                  updateResult = await db.setQuery(conn, `update studentAttendance set attendance = ${attendanceObj[i][4]} where studentId = ? and teacherId=? and session = ? and attendanceDate = ?`, [attendanceObj[i][0], attendanceObj[i][1], attendanceObj[i][2], attendanceObj[i][3]]);
+                }
+                return updateResult.affectedRows
+            }
+        } else {
+            let result = await db.setQuery(conn, 'insert into studentAttendance (studentId, teacherId, session, attendanceDate, attendance) values ?', [attendanceObj]);
+            return result.affectedRows;
+        }
+    })
+}
+
+//get class attendance by date
+exports.getClassAttendanceOfDate = async function(attendanceObj){
+    let Result = await db.query('select * from studentAttendance where teacherid=? and attendanceDate = ? and session = ? ', [attendanceObj.teacherId, attendanceObj.attendanceDate, attendanceObj.session]);
+    return Result;
+}
+
+//get Class Attendance Of Selected Dates
+exports.getClassAttendanceOfSelecteddates = async function(attendanceObj){
+    console.log('attendanceObj',attendanceObj)
+    let Result = await db.query(`select * from studentAttendance where teacherId = ${attendanceObj.teacherId} and session = ${attendanceObj.session} and attendanceDate BETWEEN ${attendanceObj.startDate} AND '2020-06-10'`);
+
+        // let Result = await db.query(`select * from studentAttendance where teacherId = ${attendanceObj.teacherId} and session = ${attendanceObj.session} and attendanceDate BETWEEN ${attendanceObj.startDate} AND '2020-06-08'`);
+
+    // let Result = await db.query(`select * from studentAttendance where teacherid = ?  and session = ? and attendanceDate  BETWEEN ${attendanceObj.startDate} AND ${attendanceObj.endDate}`, [attendanceObj.teacherId, attendanceObj.session]);
+    console.log('Result',Result)
     return Result;
 }

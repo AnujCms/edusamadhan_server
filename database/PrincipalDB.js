@@ -80,30 +80,9 @@ exports.createTeacher = async function (teacherObj, userid, accountid) {
     return db.transaction(async function (conn) {
         let result = await checkAdminWithAccount(userid, accountid);
         if (result == 1) {
-            var r = await db.setQuery(conn, 'CALL SQSP_CreateTeacher(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)',
-        [teacherObj.firstname,
-        teacherObj.lastname,
-        teacherObj.emailid,
-        teacherObj.username,
-        teacherObj.password,
-        teacherObj.cellnumber,
-        teacherObj.dob,
-        teacherObj.gender,
-        teacherObj.userrole,
-        teacherObj.adharnumber,
-        teacherObj.qualification,
-        teacherObj.subject,
-        teacherObj.localaddress,
-        teacherObj.parmanentaddress,
-        teacherObj.session,
-        teacherObj.status,
-        teacherObj.images,
-        teacherObj.classid,
-        teacherObj.section,
-        teacherObj.salary
-        ]);
-        if(r[0][0].userid){
-            let loopUpEntry = { "accountid": accountid, "userid": r[0][0].userid };
+            var r = await db.setQuery(conn, 'INSERT into userdetails set ?',[teacherObj])
+        if(r.affectedRows == 1){
+            let loopUpEntry = { "accountid": accountid, "userid": r.insertId };
             let results = await db.setQuery(conn, 'INSERT INTO teacher_principal SET ?', loopUpEntry);
             return results.affectedRows;
         }else{

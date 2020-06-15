@@ -1,4 +1,5 @@
 const Joi = require("@hapi/joi").extend(require('@hapi/joi-date'));;
+const moment= require('moment')
 
 const studentObject = Joi.object({
     firstname:Joi.string().required().max(100),
@@ -12,6 +13,7 @@ const studentObject = Joi.object({
     religion:Joi.number().valid(1,2,3,4).required(),
     category:Joi.number().valid(1,2,3).required(),
     locality:Joi.number().valid(1,2).required(),
+    mediumType: Joi.number().valid(1,2).required(),
     parmanentaddress:Joi.string().max(100).required(),
     localaddress:Joi.string().max(100).required(),
     images:Joi.string().allow('').allow(null),
@@ -64,8 +66,10 @@ const saveAttendanceObject = Joi.object({
 
 const resultObject = Joi.object({
     subjectName: Joi.string().required(),
-    totalMarks: Joi.number().min(1),
-    obtainMarks: Joi.string().max(Joi.ref('totalMarks')).min(1),
+    theoryTotalMarks: Joi.number().min(1),
+    theoryObtainMarks: Joi.string().max(Joi.ref('theoryTotalMarks')).min(1),
+    practicalTotalMarks: Joi.number().min(1),
+    practicalObtainMarks: Joi.string().max(Joi.ref('practicalTotalMarks')).min(1),
     grade: Joi.string().max(5)
 })
 const saveResultObject = Joi.object({
@@ -80,6 +84,21 @@ const getResultObject = Joi.object({
     examinationType: Joi.number().valid(1,2,3,4).required()
 })
 
+const attendanceObject = Joi.object({
+    studentId: Joi.number().required(),
+    attendanceDate: Joi.date().max(new Date()).required(),
+    attendance: Joi.number().valid(1,2,3).required()
+})
+
+const attendanceArray = Joi.object({
+    attendanceArray: Joi.array().items(attendanceObject)
+})
+
+const getAttendanceObj = Joi.object({
+    startDate: Joi.string().required(),
+    endDate: Joi.date().max(moment(new Date()).add(1,"days").toDate()).required()
+})
+
 exports.studentObject = studentObject;
 exports.studentIdParams = studentIdParams;
 exports.adharNumberParams = adharNumberParams;
@@ -90,3 +109,5 @@ exports.studentIdBody = studentIdBody;
 exports.saveAttendanceObject = saveAttendanceObject;
 exports.saveResultObject = saveResultObject;
 exports.getResultObject = getResultObject;
+exports.attendanceArray = attendanceArray;
+exports.getAttendanceObj = getAttendanceObj;

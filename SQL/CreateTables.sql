@@ -426,3 +426,68 @@ CREATE TABLE `examresult` (
   `modifieddate` datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`examresult`)
 ) ENGINE=InnoDB DEFAULT CHARSET=latin1
+
+
+CREATE TABLE `studentfee` (
+  `studentfeeid` int(11) NOT NULL AUTO_INCREMENT,
+  `adharnumber` varchar(225) NOT NULL,
+  `session` int(11) DEFAULT NULL,
+  `january` json DEFAULT NULL,
+  `february` json DEFAULT NULL,
+  `march` json DEFAULT NULL,
+  `april` json DEFAULT NULL,
+  `may` json DEFAULT NULL,
+  `june` json DEFAULT NULL,
+  `july` json DEFAULT NULL,
+  `august` json DEFAULT NULL,
+  `september` json DEFAULT NULL,
+  `october` json DEFAULT NULL,
+  `november` json DEFAULT NULL,
+  `december` json DEFAULT NULL,
+  `createddate` datetime DEFAULT CURRENT_TIMESTAMP,
+  `modifieddate` datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`studentfeeid`),
+  UNIQUE KEY `adharnumber_UNIQUE` (`adharnumber`)
+) ENGINE=InnoDB AUTO_INCREMENT=104 DEFAULT CHARSET=latin1
+
+CREATE TABLE `studenttransportfee` (
+  `studentfeeid` int(11) NOT NULL AUTO_INCREMENT,
+  `adharnumber` varchar(225) NOT NULL,
+  `session` int(11) DEFAULT NULL,
+  `january` json DEFAULT NULL,
+  `february` json DEFAULT NULL,
+  `march` json DEFAULT NULL,
+  `april` json DEFAULT NULL,
+  `may` json DEFAULT NULL,
+  `june` json DEFAULT NULL,
+  `july` json DEFAULT NULL,
+  `august` json DEFAULT NULL,
+  `september` json DEFAULT NULL,
+  `october` json DEFAULT NULL,
+  `november` json DEFAULT NULL,
+  `december` json DEFAULT NULL,
+  `createddate` datetime DEFAULT CURRENT_TIMESTAMP,
+  `modifieddate` datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`studentfeeid`),
+  UNIQUE KEY `adharnumber_UNIQUE` (`adharnumber`)
+) ENGINE=InnoDB AUTO_INCREMENT=104 DEFAULT CHARSET=latin1
+
+
+
+alter table feestructure add column mediumType int NOT NULL after class;
+
+
+alter table userdetails add column mediumType int NOT NULL after locality;
+
+************************
+CREATE TABLE `studentAttendance` (
+  `attendanceId` int(11) NOT NULL AUTO_INCREMENT,
+  `studentId` int(111) NOT NULL,
+  `teacherId` int(11) NOT NULL,
+  `session` int(11) NOT NULL,
+  `attendanceDate` TEXT Not Null,
+  `attendance` int(11) NOT NULL,
+  `createddate` datetime DEFAULT CURRENT_TIMESTAMP,
+  `modifieddate` datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`attendanceid`)
+) ENGINE=InnoDB AUTO_INCREMENT=104 DEFAULT CHARSET=latin1

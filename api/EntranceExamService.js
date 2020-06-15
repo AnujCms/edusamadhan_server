@@ -118,14 +118,14 @@ router.get("/getclassforquestion/:classId", isExaminationHead, classIdParams, ch
 //entrance Registration
 router.post("/entranceRegistration", isExaminationHead, entranceObject, checkTeacherBelongsToAccount, async function (req, res) {
     let student = {
-        fname: encrypt.encrypt(req.body.fname),
-        lname: encrypt.encrypt(req.body.lname),
+        firstname: encrypt.encrypt(req.body.fname),
+        lastname: encrypt.encrypt(req.body.lname),
         cellnumber: encrypt.encrypt(req.body.cellnumber),
         username: encrypt.computeHash(req.body.adharnumber),
         password: encrypt.getHashedPassword(req.body.adharnumber),
         adharnumber: req.body.adharnumber,
         dob: encrypt.encrypt(req.body.dob),
-        class: req.body.class,
+        classid: req.body.class,
         section: req.body.section,
         status: UserEnum.UserStatus.Active,
         userrole: UserEnum.UserRoles.EntranceStudent
