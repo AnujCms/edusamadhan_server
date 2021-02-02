@@ -5,11 +5,11 @@ const eventIdParams = Joi.object({
 })
 
 const notificationsObject = Joi.object({
-    notificationuser:Joi.number().required(),
-    notificationsubject: Joi.string().required(),
-    notificationcreateddate:Joi.string().required(),
-    notificationdescription:Joi.string().required().max(200),
-    notificationid: Joi.number().allow('')
+    notificationUser:Joi.number().required(),
+    notificationSubject: Joi.string().required(),
+    notificationCreatedDate:Joi.string().required(),
+    notificationDescription:Joi.string().required().max(200),
+    notificationId: Joi.number().allow('')
 })
 
 exports.notificationsObject = notificationsObject;

@@ -11,7 +11,7 @@
   "author": "anuj verma",
   "license": "ISC",
   "dependencies": {
-    "@hapi/joi": "^17.1.0",
+    "@hapi/joi": "^16.1.8",
     "@hapi/joi-date": "^2.0.1",
     "amqp-connection-manager": "^3.2.0",
     "amqplib": "^0.5.5",
@@ -26,7 +26,6 @@
     "express-validator": "^4.3.0",
     "generate-password": "^1.5.1",
     "helmet": "^3.9.0",
-    "joi": "^14.3.1",
     "jsonwebtoken": "^7.2.1",
     "lodash": "^4.17.4",
     "memory-cache": "^0.2.0",

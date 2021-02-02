@@ -3,15 +3,16 @@ const TimeTableDB = require("../database/TimeTableDB.js");
 const UserEnum = require('../lookup/UserEnum');
 const joiSchema = require('../apiJoi/timetable.js');
 const middleWare = require('../apiJoi/middleWare.js');
+const encrypt = require('../utils/encrypt');
 
-const isPrincipal = function (req, res, next) {
+const isPrincipal = (req, res, next) => {
     if (req.user.role === UserEnum.UserRoles.Principal) {
         return next();
     } else {
         return res.status(200).json({ status: 0, statusDescription: "Unauthenticted user." });
     }
 }
-const isPrincipalOrTeacherOrStudent = function(req, res, next){
+const isPrincipalOrTeacherOrStudent = (req, res, next) => {
     if (req.user.role === UserEnum.UserRoles.Principal || req.user.role === UserEnum.UserRoles.Teacher || req.user.role === UserEnum.UserRoles.Student || req.user.role === UserEnum.UserRoles.FeeAccount || req.user.role === UserEnum.UserRoles.ExamHead) {
         return next();
     } else {
@@ -26,27 +27,34 @@ const timeTableObject = middleWare(joiSchema.timeTableObject, "body", true);
 const classAndSectionParams =  middleWare(joiSchema.classAndSectionParams, "params", true);
 
 //get subjects of selected class
-router.get("/getsubjectofselectedclass/:classid", isPrincipal, classIdParams, async function (req, res) {
-    let results = await TimeTableDB.getSubjectsOfSelectedClass(req.params.classid, req.user.userid);
+router.get("/getsubjectofselectedclass/:classId", isPrincipal, classIdParams, async (req, res) => {
+    let results = await TimeTableDB.getSubjectsOfSelectedClass(req.params.classId, req.user.userId, req.user.accountId);
     if(results.length>0){
         res.status(200).json({status:1, statusDescription:JSON.parse(results[0].subjects)});
     }else{
         res.status(200).json({status:0, statusDescription:"Not able to get subjects."});
     }
 })
-
 //get teachers of selected subjects
-router.get("/getsubjectteachers/:subjectid", isPrincipal, subjectIdParams, async function (req, res) {
-    let results = await TimeTableDB.getTeachersOfSelectedSubject(req.params.subjectid, UserEnum.UserRoles.Teacher, req.user.accountid, req.user.userid);
+router.get("/getsubjectteachers/:subjectId", isPrincipal, subjectIdParams, async (req, res) =>{
+    let results = await TimeTableDB.getTeachersOfSelectedSubject(req.params.subjectId, UserEnum.UserRoles.Teacher, req.user.accountId, req.user.userId);
     if(results.length>0){
-        res.status(200).json({status:1, statusDescription:results});
+        let teacherArray = []
+        results.map((item)=>{
+            let teacherObj = {
+                firstName: encrypt.decrypt(item.firstName),
+                lastName: encrypt.decrypt(item.lastName),
+                userId: item.userId
+            }
+            teacherArray.push(teacherObj);
+        })
+        res.status(200).json({status:1, statusDescription:teacherArray});
     }else{
         res.status(200).json({status:0, statusDescription:"Not able to get teacher."});
     }
 })
-
 //create periods
-router.post("/createperiods", isPrincipal, periodObject, async function (req, res) {
+router.post("/createperiods", isPrincipal, periodObject, async (req, res) => {
     let periodObject;
     switch (req.body.periodId) {
         case 1: periodObject = { period1: JSON.stringify([{periodId:req.body.periodId, periodStartTime:req.body.periodStartTime , periodEndTime: req.body.periodEndTime}])}
@@ -72,9 +80,9 @@ router.post("/createperiods", isPrincipal, periodObject, async function (req, re
         default:
             break;
     }
-    periodObject.userid = req.user.userid;
-    periodObject.accountid = req.user.accountid;
-    periodObject.session = JSON.parse(req.user.configdata).session;
+    periodObject.userId = req.user.userId;
+    periodObject.accountId = req.user.accountId;
+    periodObject.sessionId = JSON.parse(req.user.configData).sessionId;
 
     let results = await TimeTableDB.createPeriods(periodObject);
     if(results){
@@ -83,19 +91,17 @@ router.post("/createperiods", isPrincipal, periodObject, async function (req, re
         res.status(200).json({status:0, statusDescription:"Not able to save period details."});
     }
 })
-
 //get periods details
-router.get("/getperiodsdetails", isPrincipalOrTeacherOrStudent, async function (req, res) {
-    let results = await TimeTableDB.getPeriodsDetails(req.user.accountid, JSON.parse(req.user.configdata).session);
+router.get("/getperiodsdetails", async (req, res) => {
+    let results = await TimeTableDB.getPeriodsDetails(req.user.accountId, JSON.parse(req.user.configData).sessionId);
     if(results.length>0){
         res.status(200).json({status:1, statusDescription:results});
     }else{
         res.status(200).json({status:0, statusDescription:"Not able to get teacher."});
     }
 })
-
 //create timeTAble
-router.post("/savetimetable", isPrincipal, timeTableObject, async function (req, res) {
+router.post("/savetimetable", isPrincipal, timeTableObject, async (req, res) => {
     let timeTableObject;
     switch (req.body.periodId) {
         case 1: timeTableObject = { period1: JSON.stringify([{periodId:req.body.periodId, dayName:req.body.dayName , subjectName: req.body.subjectName, teacherName: req.body.teacherName}])}
@@ -121,12 +127,12 @@ router.post("/savetimetable", isPrincipal, timeTableObject, async function (req,
         default:
             break;
     }
-    timeTableObject.accountid = req.user.accountid;
-    timeTableObject.userid = req.user.userid;
-    timeTableObject.class = req.body.class;
-    timeTableObject.section = req.body.section;
+    timeTableObject.accountId = req.user.accountId;
+    timeTableObject.userId = req.user.userId;
+    timeTableObject.classId = req.body.classId;
+    timeTableObject.sectionId = req.body.sectionId;
     timeTableObject.dayname = req.body.dayname;
-    timeTableObject.session = JSON.parse(req.user.configdata).session;
+    timeTableObject.sessionId = JSON.parse(req.user.configData).sessionId;
 
     let results = await TimeTableDB.createTimeTable(timeTableObject);
     if(results){
@@ -135,10 +141,9 @@ router.post("/savetimetable", isPrincipal, timeTableObject, async function (req,
         res.status(200).json({status:0, statusDescription:"Not able to save period details."});
     }
 })
-
 //get full timetable by principal
-router.get("/getfulltimetable/:classid/:sectionid", isPrincipalOrTeacherOrStudent, classAndSectionParams, async function (req, res) {
-    let results = await TimeTableDB.getFullTimeTable(req.user.accountid, JSON.parse(req.user.configdata).session, req.params.classid, req.params.sectionid);
+router.get("/getfulltimetable/:classId/:sectionId", isPrincipalOrTeacherOrStudent, classAndSectionParams, async (req, res) => {
+    let results = await TimeTableDB.getFullTimeTable(req.user.accountId, JSON.parse(req.user.configData).sessionId, req.params.classId, req.params.sectionId);
     if(results.length>0){
         res.status(200).json({status:1, statusDescription:results});
     }else{
@@ -149,7 +154,7 @@ router.get("/getfulltimetable/:classid/:sectionid", isPrincipalOrTeacherOrStuden
 /**
 * @swagger
 * paths:
-*     /timetableservice/getsubjectofselectedclass/{classid}:
+*     /timetableservice/getsubjectofselectedclass/{classId}:
 *       get:
 *          description: Get subjects of selected class 
 *          tags: [TimeTable Service]
@@ -169,7 +174,7 @@ router.get("/getfulltimetable/:classid/:sectionid", isPrincipalOrTeacherOrStuden
 *                                type: object
 *          security:
 *                - LoginSecurity: []
-*     /timetableservice/getsubjectteachers/{subjectid}:
+*     /timetableservice/getsubjectteachers/{subjectId}:
 *      get:
 *          description: Get Subject Teachers
 *          tags: [TimeTable Service]
@@ -265,7 +270,7 @@ router.get("/getfulltimetable/:classid/:sectionid", isPrincipalOrTeacherOrStuden
 *                                 type: object
 *             security:
 *                - LoginSecurity: []
-*     /timetableservice/getfulltimetable/{classid}/{sectionid}:
+*     /timetableservice/getfulltimetable/{classId}/{sectionId}:
 *      get:
 *          description: Get Subject Teachers
 *          tags: [TimeTable Service]

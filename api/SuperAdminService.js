@@ -5,43 +5,51 @@ const encrypt = require("../utils/encrypt.js");
 const uuid = require('uuid');
 const publisher = require('../pubsub/publisher');
 const generator = require('generate-password');
+const joiSchema = require('../apiJoi/superadmin.js');
+const middleWare = require('../apiJoi/middleWare.js');
 
 function getKeyByValue(object, value) {
     return Object.keys(object).find(key => object[key] === value);
 }
 
-const isSuperAdminRole = function (req, res, next) {
+const isSuperAdminRole = (req, res, next) => {
     if (req.user.role === UserEnum.UserRoles.SuperAdmin) {
         return next();
     }
     res.status(403).json({ status: 0, statusDescription: "Not Authenticated user." });
 };
+
+//middleware for JOI
+const schoolObject = middleWare(joiSchema.schoolObject, "body", true);
+const accountIdParams = middleWare(joiSchema.accountIdParams, "params", true);
+
 //get all the schools
-router.get("/all", isSuperAdminRole, async function (req, res) {
+router.get("/all", isSuperAdminRole, async (req, res) => {
     let results = await superAdminDB.getAllAccountsForSuperAdmin();
     if (results.length > 0) {
-        results.forEach(function (result) {
-            result.accountname = result.accountname;
-            result.accountid = result.accountid;
+        results.forEach((result) => {
+            result.accountName = encrypt.decrypt(result.accountName);
+            result.accountId = result.accountId;
         });
         res.status(200).json({ status: 1, statusDescription: results });
     } else {
         res.status(200).json({ status: 0, statusDescription: 'Not able to get the account list.' });
     }
+
 });
 //get teachers of selected account
-router.get("/:accountid/teachersforselectedaccount/all", isSuperAdminRole, async function (req, res) {
-    let results = await superAdminDB.getAllTeachersByAccountSuperAdmin(req.params.accountid);
+router.get("/:accountId/teachersforselectedaccount/all", isSuperAdminRole, async (req, res) => {
+    let results = await superAdminDB.getAllTeachersByAccountSuperAdmin(req.params.accountId);
     if (results.length > 0) {
         let teacherObj = [];
-        results.forEach(function (result) {
+        results.forEach((result) => {
             teacherObj.push({
-                userid: result.userid,
-                firstname: result.firstname,
-                lastname: result.lastname,
-                fullname: result.lastname + " " + result.firstname,
-                cellnumber: encrypt.decrypt(result.cellnumber),
-                emailid: encrypt.decrypt(result.emailid),
+                userId: result.userId,
+                firstName: encrypt.decrypt(result.firstName),
+                lastName: encrypt.decrypt(result.lastName),
+                fullName: encrypt.decrypt(result.lastName) + " " + encrypt.decrypt(result.firstName),
+                cellNumber: encrypt.decrypt(result.cellNumber),
+                emailId: encrypt.decrypt(result.emailId),
                 userrole: getKeyByValue(UserEnum.UserRoles, result.userrole),
                 status: getKeyByValue(UserEnum.UserStatus, result.status),
             })
@@ -53,24 +61,25 @@ router.get("/:accountid/teachersforselectedaccount/all", isSuperAdminRole, async
     }
 });
 //get students of selected teacher by superAdmin
-router.get("/:accountid/:teacherid/students", isSuperAdminRole, async function (req, res) {
-    let result = await superAdminDB.getAllStudentsBySuperAdmin(req.params.teacherid);
+router.get("/:accountId/:teacherId/students", isSuperAdminRole, async (req, res) => {
+    let result = await superAdminDB.getAllStudentsBySuperAdmin(req.params.accountId, req.params.teacherId, UserEnum.StudentStatus.Active);
     if (result.length > 0) {
         let studentObj = [];
-        result.forEach(function (row) {
+        result.forEach((row) => {
             studentObj.push({
-                studentid: row.userid,
-                firstname: encrypt.decrypt(row.firstname),
-                lastname: encrypt.decrypt(row.lastname),
-                mothername: row.mothername,
-                fathername: row.fathername,
-                cellnumber: encrypt.decrypt(row.cellnumber),
-                roll: row.adharnumber,
+                studentId: row.userId,
+                firstName: encrypt.decrypt(row.firstName),
+                lastName: encrypt.decrypt(row.lastName),
+                motherName: encrypt.decrypt(row.motherName),
+                fatherName: encrypt.decrypt(row.fatherName),
+                cellNumber: encrypt.decrypt(row.cellNumber),
+                aadharNumber: encrypt.decrypt(row.aadharNumber),
                 dob: encrypt.decrypt(row.dob),
                 gender: row.gender,
                 religion: row.religion,
                 category: row.category,
                 locality: row.locality,
+                busService: row.busService,
                 images: row.images
             });
         });
@@ -80,78 +89,10 @@ router.get("/:accountid/:teacherid/students", isSuperAdminRole, async function (
     }
 });
 //create school Admin
-router.post("/createschooladmin", isSuperAdminRole, async function (req, res) {
-    let img = req.body.images;
-    var image;
-    if (img == null) {
-        image = img
-    } else if (img.length == 0) {
-        image = null
-    } else {
-        image = img
-    }
-    if(req.body.images !== ''){
-        var encryptimg =  image.replace(/^data:image\/[a-z]+;base64,/, "");
-    }
-    let data = req.body;
-    var adminObj = {
-        firstname: data.firstname,
-        lastname: data.lastname,
-        dob: encrypt.encrypt(data.dob),
-        emailid: encrypt.encrypt(data.emailid),
-        userrole: UserEnum.UserRoles.Principal,
-        username: encrypt.computeHash(data.emailid),
-        status: UserEnum.UserStatus.Active,
-        cellnumber: encrypt.encrypt(data.cellnumber),
-        adharnumber: data.adharnumber,
-
-        gender: data.gender,
-        session:data.session,
-        password: encrypt.getHashedPassword(data.adharnumber),
-        passwordchangecount: 0,
-        images: encryptimg
-    };
-
-    var accountObj = {
-        accountid: uuid.v1(),
-        accountname: req.body.schoolname,
-        accountrefnumber: req.body.registration,
-        accountaddress: req.body.schooladdress,
-        accountype: req.body.accounttype,
-        status: 1
-    }
-    if (data.configType) {
-        var configData = {
-            accountid: accountObj.accountid,
-            session: data.session,
-            account: data.account,
-            examination: data.examination,
-            configType: data.configType,
-            examoption: data.examoption,
-            accounttype: data.accounttype
-        };    
-    }
-    const publishEvent = {
-        "emailId": "anujvermaatc1994@gmail.com",
-        "principalName": req.body.firstname + " " + req.body.lastname,
-        "schoolName": req.body.schoolname,
-        "tempPassword": password,
-        "userRole": "Principal"
-    }
-    var configdata = { "configdata": JSON.stringify(configData) }
-    let result = await superAdminDB.createSchoolAdmin(adminObj, accountObj, configdata );
-    if (result == 1) {
-        res.status(200).json({ status: 1, statusDescription: 'School account has been created successfully.' });
-        publisher.publishEmailEventForCreateSchool(publishEvent);
-    } else {
-        res.status(200).json({ status: 0, statusDescription: 'Not able to create school account details.' });
-    }
-});
-//update school information
-router.put("/:accountid", isSuperAdminRole, async function (req, res) {
+router.post("/createschooladmin", isSuperAdminRole, schoolObject, async (req, res) => {
     let password = generator.generate({ length: 10, numbers: true });
     let img = req.body.images;
-    var image;
+    let image;
     if (img == null) {
         image = img
     } else if (img.length == 0) {
@@ -159,37 +100,58 @@ router.put("/:accountid", isSuperAdminRole, async function (req, res) {
     } else {
         image = img
     }
-    if(req.body.images !== null){
-        var encryptimg =  image.replace(/^data:image\/[a-z]+;base64,/, "");
-       }
+    let encryptedImage;
+    if (req.body.images !== '' && req.body.images != null) {
+        encryptedImage = image.replace(/^data:image\/[a-z]+;base64,/, "");
+    }
+
+    let imgLogo = req.body.schoolLogo;
+    let logo;
+    if (imgLogo == null) {
+        logo = imgLogo
+    } else if (imgLogo.length == 0) {
+        logo = null
+    } else {
+        logo = imgLogo
+    }
+    let encryptedLogo;
+    if (req.body.schoolLogo !== '' && req.body.schoolLogo != null) {
+         encryptedLogo = logo.replace(/^data:image\/[a-z]+;base64,/, "");
+    }
     let data = req.body;
+    let adminObj = {
+        firstName: encrypt.encrypt(data.firstName),
+        lastName: encrypt.encrypt(data.lastName),
+        dob: encrypt.encrypt(data.dob),
+        emailId: encrypt.encrypt(data.emailId),
+        userrole: UserEnum.UserRoles.Director,
+        username: encrypt.computeHash(data.emailId),
+        cellNumber: encrypt.encrypt(data.cellNumber),
+        aadharNumber: encrypt.encrypt(data.aadharNumber),
+        gender: data.gender,
+        sessionId: data.sessionId,
+        images: encryptedImage
+    };
+
+    let accountObj = {
+        accountName: encrypt.encrypt(data.schoolName),
+        accountRefNumber: encrypt.encrypt(data.registration),
+        phoneNumber: encrypt.encrypt(data.phoneNumber),
+        schoolLogo: encryptedLogo,
+        accountAddress: data.schoolAddress
+    }
+    let configObj;
     if (data.configType) {
-        var configData = {
-            session: data.session,
-            account: data.account,
+        configObj = {
+            accountId: accountObj.accountId,
+            sessionId: data.sessionId,
+            accountant: data.accountant,
             examination: data.examination,
             configType: data.configType,
-            examoption: data.examoption,
-            accounttype: data.accounttype
+            examOption: data.examOption,
+            examinationType: data.examinationType,
+            accountName: encrypt.encrypt(data.schoolName),
         };
-        var configdata = { "configdata": JSON.stringify(configData) }
-    }
-    var adminObj = {
-        firstname: req.body.firstname,
-        lastname: req.body.lastname,
-        dob: encrypt.encrypt(data.dob),
-        emailid: encrypt.encrypt(req.body.emailid),
-        cellnumber: encrypt.encrypt(req.body.cellnumber),
-        adharnumber: data.adharnumber,
-        gender: data.gender,
-        session:data.session,
-        images: encryptimg
-    };
-    var accountObj = {
-        accountname: req.body.schoolname,
-        accountrefnumber: req.body.registration,
-        accountaddress: req.body.schooladdress,
-        accountype: req.body.accounttype
     }
     const publishEvent = {
         "emailId": "anujvermaatc1994@gmail.com",
@@ -198,35 +160,53 @@ router.put("/:accountid", isSuperAdminRole, async function (req, res) {
         "tempPassword": password,
         "userRole": "Principal"
     }
-    let result = await superAdminDB.updateSchoolAdmin(req.params.accountid, adminObj, accountObj, configdata);
-    if (result == 1) {
-        publisher.publishEmailEventForCreateSchool(publishEvent);
-        res.status(200).json({ status: 1, statusDescription: 'School information has been updated successfully.' });
+    let configData = { "configData": JSON.stringify(configObj) }
+    let result = 0;
+    let message = "created";
+    if (req.body.accountId) {
+        result = await superAdminDB.updateSchoolAdmin(req.body.accountId, adminObj, accountObj, configData);
+        message = "updated";
     } else {
-        res.status(200).json({ status: 0, statusDescription: 'Not able to update school details.' });
+        adminObj.status= UserEnum.UserStatus.Pending;
+        adminObj.passwordChangeCount = 0;
+        adminObj.wrongPasswordCount = 0;
+        adminObj.password = encrypt.getHashedPassword(data.aadharNumber);
+        accountObj.accountStatus = UserEnum.AccountStatus.Active;
+        accountObj.accountId = uuid.v1();
+        result = await superAdminDB.createSchoolAdmin(adminObj, accountObj, configData);
+    }
+    if (result == 1) {
+        res.status(200).json({ status: 1, statusDescription: `School account has been ${message} successfully.` });
+        // publisher.publishEmailEventForCreateDirector(publishEvent);
+    } else {
+        res.status(200).json({ status: 0, statusDescription: `Not able to ${message} school account details.` });
     }
 });
+
 //get the school account information for update
-router.get("/:accountid/getschooldetails", isSuperAdminRole, async function (req, res) {
-    let results = await superAdminDB.getSchoolAccountDetailsForUpdate(req.params.accountid);
+router.get("/getschooldetails/:accountId", isSuperAdminRole, accountIdParams, async (req, res) => {
+    let results = await superAdminDB.getSchoolAccountDetailsForUpdate(req.params.accountId);
     if (results.length > 0) {
         let schoolObj = [];
-        results.forEach(function (result) {
+        results.forEach((result) => {
             schoolObj.push({
-                accountname:result.accountname,
-                accountrefnumber:result.accountrefnumber,
-                accountaddress:result.accountaddress,
-                firstname: result.firstname,
-                lastname: result.lastname,
-                dob:encrypt.decrypt(result.dob),
-                cellnumber: encrypt.decrypt(result.cellnumber),
-                countrycode: result.countrycode,
-                emailid: encrypt.decrypt(result.emailid),
-                configdata: JSON.parse(result.configdata),
-                adharnumber: result.adharnumber,
-                gender:result.gender,
-                session: result.session,
-                images:result.images
+                accountId: result.accountId,
+                accountStatus: result.accountStatus,
+                accountName: encrypt.decrypt(result.accountName),
+                phoneNumber: encrypt.decrypt(result.phoneNumber),
+                accountRefNumber: encrypt.decrypt(result.accountRefNumber),
+                firstName: encrypt.decrypt(result.firstName),
+                lastName: encrypt.decrypt(result.lastName),
+                cellNumber: encrypt.decrypt(result.cellNumber),
+                aadharNumber: encrypt.decrypt(result.aadharNumber),
+                emailId: encrypt.decrypt(result.emailId),
+                dob: encrypt.decrypt(result.dob),
+                accountAddress: result.accountAddress,
+                configData: JSON.parse(result.configData),
+                gender: result.gender,
+                sessionId: result.sessionId,
+                images: result.images,
+                schoolLogo: result.schoolLogo
             })
         });
         res.status(200).json({ status: 1, statusDescription: schoolObj });
@@ -235,22 +215,27 @@ router.get("/:accountid/getschooldetails", isSuperAdminRole, async function (req
     }
 });
 //get all school admin details for manage account
-router.get("/getallschooladmin", isSuperAdminRole, async function (req, res) {
+router.get("/getallschooladmin", isSuperAdminRole, async (req, res) => {
     let results = await superAdminDB.getAllSchoolAdminDetailsForManage();
     if (results.length > 0) {
         let adminObj = [];
-        results.forEach(function (result) {
+        results.forEach((result) => {
             adminObj.push({
-                accountid: result.accountid,
-                status: result.status,
-                accountname: result.accountname,
-                accountrefnumber: result.accountrefnumber,
-                firstname: result.firstname,
-                lastname: result.lastname,
-                cellnumber: encrypt.decrypt(result.cellnumber),
-                emailid: encrypt.decrypt(result.emailid),
+                accountId: result.accountId,
+                accountStatus: result.accountStatus,
+                accountName: encrypt.decrypt(result.accountName),
+                phoneNumber: encrypt.decrypt(result.phoneNumber),
+                accountRefNumber: encrypt.decrypt(result.accountRefNumber),
+                firstName: encrypt.decrypt(result.firstName),
+                lastName: encrypt.decrypt(result.lastName),
+                cellNumber: encrypt.decrypt(result.cellNumber),
+                aadharNumber: encrypt.decrypt(result.aadharNumber),
+                emailId: encrypt.decrypt(result.emailId),
                 images: result.images,
-                adharnumber:result.adharnumber
+                schoolLogo: result.schoolLogo,
+                status: result.status,
+                userId: result.userId,
+                userrole: result.userrole
             })
         });
         res.status(200).json({ status: 1, statusDescription: adminObj });
@@ -260,8 +245,8 @@ router.get("/getallschooladmin", isSuperAdminRole, async function (req, res) {
 });
 
 //Lock the account
-router.put("/:accountid/lockaccount", isSuperAdminRole, async function (req, res) {
-    let results = await superAdminDB.lockSchoolAdmin(req.params.accountid);
+router.put("/lockaccount/:accountId", isSuperAdminRole, accountIdParams, async (req, res) => {
+    let results = await superAdminDB.lockSchoolAdmin(UserEnum.AccountStatus.Locked, req.params.accountId);
     if (results == 1) {
         res.status(200).json({ status: 1, statusDescription: 'School account has been successfully locked.' });
     } else {
@@ -269,10 +254,9 @@ router.put("/:accountid/lockaccount", isSuperAdminRole, async function (req, res
     }
 });
 //UnLock the account
-router.put("/:accountid/unlockaccount", isSuperAdminRole, async function (req, res) {
-    let results = await superAdminDB.unlockSchoolAdmin(req.params.accountid);
+router.put("/unlockaccount/:accountId", isSuperAdminRole, accountIdParams, async (req, res) => {
+    let results = await superAdminDB.unlockSchoolAdmin(UserEnum.AccountStatus.Active, req.params.accountId);
     if (results == 1) {
-
         res.status(200).json({ status: 1, statusDescription: 'School account has been successfully unlocked.' });
     } else {
         res.status(200).json({ status: 0, statusDescription: 'Not able to get the School details.' });

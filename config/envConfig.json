@@ -3,12 +3,12 @@
         "port": 80,
         "domain": "localhost:3000",
         "redirectLink": "http://edusamadhan.com/public/teachers",
-        "resetpasswordurl": "http://localhost:3000/public/ResetPassword?reset_token=",
+        "resetPasswordUrl": "http://localhost:3000/public/ResetPassword?reset_token=",
         "mysqlConnection": {
-            "host": "anujrds.cswlmpegbvzy.ap-south-1.rds.amazonaws.com",
-            "user": "adminanuj",
-            "password": "mypassword",
-            "database": "schooldb"
+            "host": "edusamadhan.cbhpg6u8giyn.ap-south-1.rds.amazonaws.com",
+            "user": "admin",
+            "password": "anuj12345",
+            "database": "edusamadhan"
         },
         "rabbitmq":{
             "host":"localhost",
@@ -24,6 +24,7 @@
             "PASS": "8052131357",
             "RECIEVER":"averma@alopasoft.com"
         },
+        "shouldEncryptRMQ": 0,
         "logFilePath": "/logs/all-logs.log",
         "exceptionLogFilePath": "/logs/exceptions.log",
         "encryption": {
@@ -33,3 +34,4 @@
         "sessionSecret": "ATSgqLh9gU6Zpse83I8ZDQIRUJblJtZNbM"
     }
 }
+

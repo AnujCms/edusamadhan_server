@@ -1,113 +1,109 @@
-var db = require('./db.js');
-var UserEnum = require('../lookup/UserEnum');
+const db = require('./db.js');
+const UserEnum = require('../lookup/UserEnum');
 
 //grt all accounts
-exports.getAllAccountsForSuperAdmin = async function () {
-    let result = await db.query('SELECT accountid, accountname from account where parentaccountid !="0"');
+exports.getAllAccountsForSuperAdmin = async () => {
+    let result = await db.query('SELECT accountId, accountName from account where parentAccountId !="0"');
     return result;
 }
-exports.getAllProviderByAccountSuperAdminWithDetails = async function () {
+exports.getAllProviderByAccountSuperAdminWithDetails = async () => {
     return db.transaction(async function (conn) {
-    let account = await db.setQuery(conn, 'select accountid from account where parentaccountid = "0"');
-    if(account){
-        let result = await db.setQuery(conn, 'select a.status, a.accountid,a.accountname, a.accountrefnumber, a.accountype, a.createddatetime, d.userid, d.firstname, d.lastname, d.cellnumber, d.emailid from account a inner join account a1 on a.parentaccountid = a1.accountid inner join doctor d on a.accountadmin = d.userid where a.parentaccountid =  ?', [account[0].accountid]);
-        return result;
-    }else{
-        return 0;
-    }
+        let account = await db.setQuery(conn, 'select accountid from account where parentaccountid = "0"');
+        if (account) {
+            let result = await db.setQuery(conn, 'select a.status, a.accountid,a.accountname, a.accountrefnumber, a.createddatetime, d.userid, d.firstname, d.lastname, d.cellnumber, d.emailid from account a inner join account a1 on a.parentaccountid = a1.accountid inner join doctor d on a.accountadmin = d.userid where a.parentaccountid =  ?', [account[0].accountid]);
+            return result;
+        } else {
+            return 0;
+        }
     })
 };
 //get teachers for selected account
-exports.getAllTeachersByAccountSuperAdmin = async function (accountid, callback) {
-    let results = await db.query('SELECT d.userid, firstname, lastname, cellnumber, emailid, status, userrole from userdetails d INNER JOIN teacher_principal da where d.userid = da.userid and accountid = ? and d.status = ? and d.userrole = ?', [accountid, UserEnum.UserStatus.Active, UserEnum.UserRoles.Teacher]);
+exports.getAllTeachersByAccountSuperAdmin = async (accountId, callback) => {
+    let results = await db.query('SELECT d.userId, firstName, lastName, cellNumber, emailId, status, d.userrole from userDetails d INNER JOIN teacher_principal da where d.userId = da.userId and accountId = ? and d.status = ? and d.userrole = ?', [accountId, UserEnum.UserStatus.Active, UserEnum.UserRoles.Teacher]);
     return results;
 }
 //get students of selected teacher by superAdmin
-exports.getAllStudentsBySuperAdmin = async function (teacherid) {
-    return db.transaction(async function (conn) {
-    let classData = await db.setQuery(conn, 'select classid, section, session from userdetails where userid = ?', teacherid);
-    if (classData) {
-        var results = await db.setQuery(conn, 'CALL SQSP_GetPatientlist(?,?,?,?)', [classData[0].classid, classData[0].section, classData[0].session, teacherid]);
-        return JSON.parse(JSON.stringify(results[0]));
-    }else{
-        return 0
-    }
-})
+exports.getAllStudentsBySuperAdmin = (accountId, teacherId, status) => {
+    return db.transaction(async (conn) => {
+        let classData = await db.setQuery(conn, 'select classId, sectionId, sessionId from userDetails where userId = ?', teacherId);
+        if (classData.length > 0) {
+            let results = await db.query(`SELECT * from userDetails ud INNER JOIN student_teacher st where ud.userId = st.studentId and st.accountId = ? and st.classId = ? and st.sectionId = ? and st.sessionId = ? and ud.status = ?`, [accountId, classData[0].classId, classData[0].sectionId, classData[0].sessionId, status]);
+            return results;
+        } else {
+            return 0
+        }
+    })
 }
 //Create School account                
-exports.createSchoolAdmin = function (adminObj, accountObj, configdata) {
-    return db.transaction(async function (conn) {
-        let Results = await db.setQuery(conn, 'INSERT INTO userdetails SET ?', adminObj);
-        let adminid = Results.insertId;
-        let accountID = await db.setQuery(conn, 'SELECT accountid from account where parentaccountid = "0" LIMIT 1');
-        accountObj.parentaccountid = accountID[0].accountid;
-        if (configdata != null) {
-            let configResult = await db.setQuery(conn, 'INSERT INTO config set ?', configdata);
-            let configid = configResult.insertId;
-            accountObj.configid = configid;
+exports.createSchoolAdmin = (adminObj, accountObj, configData) => {
+    return db.transaction(async (conn) => {
+        let Results = await db.setQuery(conn, 'INSERT INTO userDetails SET ?', adminObj);
+        let accountID = await db.setQuery(conn, 'SELECT accountId from account where parentAccountId = "0" LIMIT 1');
+        accountObj.parentAccountId = accountID[0].accountId;
+        if (configData != null) {
+            let configResult = await db.setQuery(conn, 'INSERT INTO config set ?', configData);
+            accountObj.configId = configResult.insertId;
         } else {
-            accountObj.configid = 1;
+            accountObj.configId = 1;
         }
-        accountObj.accountAdmin = adminid;
+        accountObj.accountAdmin = Results.insertId;
         let accountResult = await db.setQuery(conn, 'INSERT INTO account SET ?', accountObj);
         return accountResult.affectedRows;
     })
 }
 //update school information
-exports.updateSchoolAdmin = function (accountId, adminObj, accountObj, configdata) {
-    return db.transaction(async function (conn) {
-        let userid = await db.setQuery(conn, 'select accountAdmin, configid from account where accountid = ?', accountId);
-        let Results = await db.setQuery(conn, 'update account set ? where accountid = ?', [accountObj, accountId]);
-        let upconfig = await db.setQuery(conn, 'update config SET ? where configid = ?', [configdata, userid[0].configid])
-        let accountResult = await db.setQuery(conn, 'UPDATE userdetails SET ? where userid = ? and userrole = ?', [adminObj, userid[0].accountAdmin, UserEnum.UserRoles.Principal]);
-        return accountResult.affectedRows;
+exports.updateSchoolAdmin = (accountId, adminObj, accountObj, configData) => {
+    return db.transaction(async (conn) => {
+        let accountResult = await db.setQuery(conn, 'select accountAdmin, configId from account where accountId = ?', accountId);
+        if (accountResult.length > 0) {
+            await db.setQuery(conn, 'update account set ? where accountId = ?', [accountObj, accountId]);
+            await db.setQuery(conn, 'update config SET ? where configId = ?', [configData, accountResult[0].configId])
+            let result = await db.setQuery(conn, 'UPDATE userDetails SET ? where userId = ? and userrole = ?', [adminObj, accountResult[0].accountAdmin, UserEnum.UserRoles.Director]);
+            return result.affectedRows;
+        } else {
+            return 0;
+        }
     })
 }
 //get the school account information for update
-exports.getSchoolAccountDetailsForUpdate = async function (accountid) {
-    return db.query('select a.status, a.accountid,a.accountname, a.accountrefnumber, a.accountype,a.accountaddress, a.createddatetime , d.userid, d.dob, d.firstname, d.lastname, d.cellnumber, d.emailid,d.userrole,d.adharnumber, d.gender,d.session,d.images,c.configdata from account a  inner join userdetails d on a.accountadmin = d.userid inner join config c on a.configid = c.configid where a.accountid =  ?', [accountid]);
+exports.getSchoolAccountDetailsForUpdate = async (accountId) => {
+    return await db.query('select a.accountStatus, a.accountId,a.accountName, a.phoneNumber, a.schoolLogo, a.accountRefNumber,a.accountAddress, d.userId, d.dob, d.firstName, d.lastName, d.cellNumber, d.emailId,d.userrole,d.aadharNumber, d.gender,d.sessionId,d.images,c.configData from account a  inner join userDetails d on a.accountAdmin = d.userId inner join config c on a.configId = c.configId where a.accountId =  ?', [accountId]);
 };
 //get all school admin details for manage account
-exports.getAllSchoolAdminDetailsForManage = async function () {
-    return db.transaction(async function (conn) {
-    let account = await db.setQuery(conn, 'select accountid from account where parentaccountid = "0"');
-    if(account){
-        let result = await db.setQuery(conn, 'select a.status, a.accountid,a.accountname, a.accountrefnumber, a.accountype, a.createddatetime, d.userid, d.firstname, d.lastname, d.cellnumber, d.emailid, d.images, d.adharnumber from account a inner join account a1 on a.parentaccountid = a1.accountid inner join userdetails d on a.accountadmin = d.userid where a.parentaccountid =  ?', [account[0].accountid]);
-        return result;
-    }else{
-        return 0;
-    }
+exports.getAllSchoolAdminDetailsForManage = () => {
+    return db.transaction(async (conn) => {
+        let account = await db.setQuery(conn, 'select accountId from account where parentAccountId = "0"');
+        if (account) {
+            let result = await db.setQuery(conn, 'select a.accountStatus, a.accountId,a.accountName, a.accountRefNumber, d.userId, d.status, d.userrole, d.firstName, d.lastName, d.cellNumber, d.emailId, d.images, d.aadharNumber from account a inner join account a1 on a.parentAccountId = a1.accountId inner join userDetails d on a.accountAdmin = d.userId where a.parentAccountId =  ?', [account[0].accountId]);
+            return result;
+        } else {
+            return 0;
+        }
     })
 };
 // Lock the admin
-exports.lockSchoolAdmin = function (accountId) {
-    return db.transaction(async function (conn) {
-        let accountResult = await db.setQuery(conn, 'update account set status = ? where accountid = ?', [2, accountId]);
-        let accountResulte = await db.setQuery(conn, 'update userdetails set status = ? where userid = (select accountAdmin from account where accountid = ?)', [2, accountId]);
-        return accountResult.affectedRows;
-    })
+exports.lockSchoolAdmin = async (accountStatus, accountId) => {
+    let accountResult = await db.query('update account set accountStatus = ? where accountId = ?', [accountStatus, accountId]);
+    return accountResult.affectedRows;
 }
 // UnLock the admin
-exports.unlockSchoolAdmin = function (accountId) {
-    return db.transaction(async function (conn) {
-        let accountResult = await db.setQuery(conn, 'update account set status = ? where accountid = ?', [1, accountId]);
-        let accountResulte = await db.setQuery(conn, 'update userdetails set status = ? where userid = (select accountAdmin from account where accountid = ?)', [1, accountId]);
-        return accountResult.affectedRows;
-    })
+exports.unlockSchoolAdmin = async (accountStatus, accountId) => {
+    let accountResult = await db.query('update account set accountStatus = ? where accountId = ?', [accountStatus, accountId]);
+    return accountResult.affectedRows;
 }
 
 exports.changeDoctorPassword = async (newPassword) => {
-    let result = await db.query('UPDATE userdetails SET password = ?, passwordchangecount=? where userid = ?', [newPassword.password,1, newPassword.userid]);
+    let result = await db.query('UPDATE userDetails SET password = ?, passwordChangeCount=?, status = ? where userId = ?', [newPassword.password, 1, newPassword.status, newPassword.userId]);
     return result.affectedRows;
 }
-exports.removeAccessTokenFromDB = async function (userid) {
+exports.removeAccessTokenFromDB = async (userid) => {
     await db.query('DELETE FROM refreshTokenPortal WHERE userid=?', [userid])
 }
-exports.getUserIdByRefershToken = async function (refreshToken) {
-    let userID = await db.query('select userid from refreshTokenPortal where refreshToken = ?', [refreshToken]);
-    return userID[0];
+exports.getUserIdByRefershToken = async (refreshToken) => {
+    let results = await db.query(`SELECT * from userDetails ud INNER JOIN refreshTokenPortal rt where ud.userId = rt.userId and refreshToken = ?`, [refreshToken]);    return results;
 }
-exports.updateRefreshTokenForPortl = async function (refreshTokenObj, oldRefreshToken) {
+exports.updateRefreshTokenForPortl = async (refreshTokenObj, oldRefreshToken) => {
     let result = await db.query('update refreshTokenPortal set ? where refreshToken = ?', [refreshTokenObj, oldRefreshToken])
     return result;
 }
+

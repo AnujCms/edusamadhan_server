@@ -1,32 +1,32 @@
 /*eslint-env node*/
 
-var db = require('./db.js');
-encrypt = require("../utils/encrypt.js");
-var UserEnum = require('../lookup/UserEnum')
+const db = require('./db.js');
+const encrypt = require("../utils/encrypt.js");
+const UserEnum = require('../lookup/UserEnum')
 
-exports.getAllAccounts = async function (userid) {
-    let result = await db.query('SELECT accountid, accountname from account where accountadmin = ?', [userid]);
+exports.getAllAccounts = async (userId) => {
+    let result = await db.query('SELECT accountid, accountname from account where accountadmin = ?', [userId]);
     return result;
 }
 
-exports.getAllAccountsForSuperAdmin = async function () {
+exports.getAllAccountsForSuperAdmin = async () => {
     let result = await db.query('SELECT accountid, accountname from account');
     return result;
 }
 
-exports.getUserByUserId = async function (userid) {
-    let result = await db.query('select userid, firstname, lastname, cellnumber, emailid, status, userrole, gender, class, subject, qualification, dob, parmanentaddress, localaddress from doctor where userid = ?', [userid]);
+exports.getUserByUserId = async (userId) => {
+    let result = await db.query('select userId, firstname, lastname, cellnumber, emailid, status, userrole, gender, class, subject, qualification, dob, parmanentaddress, localaddress from doctor where userId = ?', [userId]);
     return result;
 }
 
-exports.checkProviderByAccountID = async function (userid, accountid) {
-    let result = await db.query('select EXISTS (select 1 from doctor_account where userid = ? and accountid = ?) as data', [userid, accountid]);
+exports.checkProviderByAccountID = async (userId, accountid) => {
+    let result = await db.query('select EXISTS (select 1 from doctor_account where userId = ? and accountid = ?) as data', [userId, accountid]);
     if (result.length > 0 && result[0].data == 0) {
         return (new Error("there is no provider linked to this account"));
     } else
         return (result);
 }
-exports.checkPatientByProviderID = async function (teacherid, studentid) {
+exports.checkPatientByProviderID = async (teacherid, studentid) => {
     let result = await db.query('select EXISTS (select 1 from student where studentid=? and (teacherid = (select teacherid from student where studentid = ?)))', [studentid, studentid]);
     if (result.length > 0 && result[0].data == 0) {
         return (new Error("there is no patient linked to this provider"));
@@ -43,21 +43,21 @@ exports.checkPatientByCoworkerIDWithRead = async function (coworkerid, patientid
     }
 }
 
-exports.updateProviderByUserId = async function (userid, userObj) {
-    let results = await db.query('update doctor set ? where userid = ?', [userObj, userid]);
+exports.updateProviderByUserId = async function (userId, userObj) {
+    let results = await db.query('update doctor set ? where userId = ?', [userObj, userId]);
     return results.affectedRows;
 }
 //get assigned class
-exports.getAssignedClass = async function (userid) {
-    let results = await db.query('select class, section, session from doctor where userid = ?', [userid]);
+exports.getAssignedClass = async function (userId) {
+    let results = await db.query('select class, section, session from doctor where userId = ?', [userId]);
     return results;
 }
-exports.createProvider = async function (providerObj, userid, accountid) {
+exports.createProvider = async function (providerObj, userId, accountid) {
     return new Promise((resolve, reject) => {
         return db.transaction(async function (conn) {
-            return checkAdminWithAccount(userid, accountid).then(async function () {
+            return checkAdminWithAccount(userId, accountid).then(async function () {
                 let Results = await db.setQuery(conn, 'INSERT INTO doctor SET ?', providerObj);
-                var loopUpEntry = {
+                let loopUpEntry = {
                     "accountid": accountid,
                     "userid": Results.insertId
                 };
@@ -97,42 +97,53 @@ exports.checkAdminHasAccessToAccount = async function (userid, accountid) {
 
 /** Loign methods */
 
-exports.getProviderDetailsForUserName = async function (userName) {
+exports.getUserDetailsForUserName = async function (userName) {
     return db.transaction(async function (conn) {
-    var results = await db.setQuery(conn, 'select * from userdetails where username = ?', [userName]);
-    if(results.length > 0){
-        if(results[0].userrole == 3 || results[0].userrole == 4 || results[0].userrole == 5){ 
-            var checkAdminStatus = await db.setQuery(conn, 'select status, accountAdmin from account where accountid = (select accountid from teacher_principal where userid = ?)', [results[0].userid]);
-            if(checkAdminStatus[0].status == 1){
-            var configdata = await db.setQuery(conn, 'select configdata, accountid, accountname from config c inner join account a on c.configid = a.configid where accountid = (select accountid from teacher_principal where userid = ?)',[results[0].userid]);
-            results[0].configdata = configdata[0];
+    let results = await db.setQuery(conn, 'select * from userDetails where userName = ?', [userName]);
+    if(results.length > 0){//Teacher, ExamHead, Accountant
+        if(results[0].userrole == 5 || results[0].userrole == 6 || results[0].userrole == 7){ 
+            let checkAdminStatus = await db.setQuery(conn, 'select accountStatus, accountAdmin from account where accountId = (select accountId from teacher_principal where userId = ?)', [results[0].userId]);
+            if(checkAdminStatus.length>0){
+            let configData = await db.setQuery(conn, 'select configData, accountId, accountName from config c inner join account a on c.configId = a.configId where accountId = (select accountId from teacher_principal where userId = ?)',[results[0].userId]);
+            results[0].configData = configData[0];
+            let userTypeResult = await db.setQuery(conn, 'select userType, entranceExamType from teacher_principal where userId = ?',[results[0].userId])
+                if(userTypeResult.length == 1){
+                    results[0].userType = userTypeResult[0].userType,
+                    results[0].entranceExamType = userTypeResult[0].entranceExamType
+                }
             return results;
-            }else if(checkAdminStatus[0].status == 2) {
-                let adminDetails = await db.setQuery(conn, 'select cellnumber, emailid  from userdetails where userid = ?', [checkAdminStatus[0].accountAdmin]);
-                var configdata = await db.setQuery(conn, 'select configdata, accountid, accountname from config c inner join account a on c.configid = a.configid where accountid = (select accountid from teacher_principal where userid = ?)',[results[0].userid]);
-                results[0].configdata = configdata[0];
-                results[0].status = 3;
-                results[0].cellnumber = adminDetails[0].cellnumber;
-                results[0].emailid= adminDetails[0].emailid;
-                return results;
             }
         }
-        else if(results[0].userrole == 2 ){
-            var details = await db.setQuery(conn, 'select configdata, accountid, accountname from config c inner join account a on c.configid = a.configid where accountAdmin = ?',[results[0].userid])
+        else if(results[0].userrole == 2 ){//Director
+            let details = await db.setQuery(conn, 'select configData, accountId, accountStatus, accountName from config c inner join account a on c.configId = a.configId where a.accountAdmin = ?',[results[0].userId])
             if(details.length == 1){
-                results[0].configdata = details[0];
+                results[0].configData = details[0];
                 return results;
             }
             else{
                 return results;
             }
         }
-        else if(results[0].userrole == 6 || results[0].userrole == 7||results[0].userrole == 9 ){
-            var details = await db.setQuery(conn, "select configdata, accountid, accountname from config c inner join account a on c.configid = a.configid where accountid = (select accountid from teacher_principal where userid = (select teacherid from student_teacher where studentid = ?))",[results[0].userid])
-            results[0].configdata = details[0];
+        else if(results[0].userrole == 3 || results[0].userrole == 4){//principal, manager
+            let details = await db.setQuery(conn, 'select configData, accountId, accountStatus, accountName from config c inner join account a on c.configId = a.configId where accountAdmin = (select directorId from director_user where userId = ?)',[results[0].userId])
+            if(details.length == 1){
+                results[0].configData = details[0];
+                let userTypeResult = await db.setQuery(conn, 'select userType from director_user where userId = ?',[results[0].userId])
+                if(userTypeResult.length == 1){
+                    results[0].userType = userTypeResult[0].userType
+                }
+                return results;
+            }
+            else{
+                return results;
+            }
+        }
+        else if( results[0].userrole == 8 || results[0].userrole == 9 ||  results[0].userrole == 11 || results[0].userrole == 12){//students
+            let details = await db.setQuery(conn, "select configData, accountId, accountStatus, accountName from config c inner join account a on c.configId = a.configId where accountId = (select accountId from student_teacher where studentId = ?)",[results[0].userId])
+            results[0].configData = details[0];
             return results;
         }
-        else if(results[0].userrole ==1){
+        else if(results[0].userrole ==1){//superAdmin
             return results;
         }
     }
@@ -155,7 +166,7 @@ exports.getConfigByAccountId = function (accountid, userid) {
 
 //get teachers
 exports.getAllProviderByAccountSuperAdmin = function (accountid, callback) {
-    return db.query('SELECT d.userid, firstname, lastname, cellnumber, emailid, status, userrole from doctor d INNER JOIN doctor_account da where d.userid = da.userid and accountid = ? and d.status = ? and d.userrole = ?', [accountid, UserEnum.UserStatus.Active, UserEnum.UserRoles.Provider]).then(function (results) {
+    return db.query('SELECT d.userId, firstname, lastname, cellnumber, emailid, status, userrole from doctor d INNER JOIN doctor_account da where d.userId = da.userId and accountid = ? and d.status = ? and d.userrole = ?', [accountid, UserEnum.UserStatus.Active, UserEnum.UserRoles.Provider]).then(function (results) {
         callback(null, results);
     }).catch(function (ex) {
         console.log(ex)
@@ -166,13 +177,13 @@ exports.getAllProviderByAccountSuperAdmin = function (accountid, callback) {
 exports.getAllProviderByAccountSuperAdminWithDetails = async function () {
     return db.transaction(async function (conn) {
     let account = await db.setQuery(conn, 'select accountid from account where parentaccountid = "0"');
-    let result = await db.setQuery(conn, 'select a.status, a.accountid,a.accountname, a.accountrefnumber, a.accountype, a.createddatetime, d.userid, d.firstname, d.lastname, d.cellnumber, d.emailid from account a inner join account a1 on a.parentaccountid = a1.accountid inner join doctor d on a.accountadmin = d.userid where a.parentaccountid =  ?', [account[0].accountid]);
+    let result = await db.setQuery(conn, 'select a.accountStatus, a.accountid,a.accountname, a.accountrefnumber, a.accountype, a.createddatetime, d.userId, d.firstname, d.lastname, d.cellnumber, d.emailid from account a inner join account a1 on a.parentaccountid = a1.accountid inner join doctor d on a.accountadmin = d.userId where a.parentaccountid =  ?', [account[0].accountid]);
     return result;
     })
 };
 
 exports.getAccounDetailsByAccountId = async function (accountid) {
-    return db.query('select a.status, a.accountid,a.accountname, a.accountrefnumber, a.accountype,a.accountaddress, a.createddatetime , d.userid, d.firstname, d.lastname, d.cellnumber, d.emailid,d.userrole,c.configdata from account a  inner join doctor d on a.accountadmin = d.userid inner join config c on a.configid = c.configid where a.accountid =  ?', [accountid]);
+    return db.query('select a.status, a.accountid,a.accountname, a.accountrefnumber, a.accountype,a.accountaddress, a.createddatetime , d.userId, d.firstname, d.lastname, d.cellnumber, d.emailid,d.userrole,c.configdata from account a  inner join doctor d on a.accountadmin = d.userId inner join config c on a.configid = c.configid where a.accountid =  ?', [accountid]);
 };
 //Create School account                
 exports.createSchoolAdmin = function (adminObj, accountObj, configdata) {
@@ -200,7 +211,7 @@ exports.editSchoolAdmin = function (accountId, adminObj, accountObj, configdata)
         let userid = await db.setQuery(conn, 'select accountAdmin, configid from account where accountid = ?', accountId);
         let Results = await db.setQuery(conn, 'update account set ? where accountid = ?', [accountObj, accountId]);
         let upconfig = await db.setQuery(conn, 'update config SET ? where configid = ?', [configdata, userid[0].configid])
-        let accountResult = await db.setQuery(conn, 'UPDATE doctor SET ? where userid = ? and userrole = ?', [adminObj, userid[0].accountAdmin, UserEnum.UserRoles.AccountAdmin]);
+        let accountResult = await db.setQuery(conn, 'UPDATE doctor SET ? where userId = ? and userrole = ?', [adminObj, userid[0].accountAdmin, UserEnum.UserRoles.AccountAdmin]);
         return accountResult.affectedRows;
     })
 }
@@ -208,7 +219,7 @@ exports.editSchoolAdmin = function (accountId, adminObj, accountObj, configdata)
 exports.lockSchoolAdmin = function (accountId) {
     return db.transaction(async function (conn) {
         let accountResult = await db.setQuery(conn, 'update account set status = ? where accountid = ?', [2, accountId]);
-        let accountResulte = await db.setQuery(conn, 'update doctor set status = ? where userid = (select accountAdmin from account where accountid = ?)', [2, accountId]);
+        let accountResulte = await db.setQuery(conn, 'update doctor set status = ? where userId = (select accountAdmin from account where accountid = ?)', [2, accountId]);
         return accountResult.affectedRows;
     })
 }
@@ -216,52 +227,52 @@ exports.lockSchoolAdmin = function (accountId) {
 exports.unlockSchoolAdmin = function (accountId) {
     return db.transaction(async function (conn) {
         let accountResult = await db.setQuery(conn, 'update account set status = ? where accountid = ?', [1, accountId]);
-        let accountResulte = await db.setQuery(conn, 'update doctor set status = ? where userid = (select accountAdmin from account where accountid = ?)', [1, accountId]);
+        let accountResulte = await db.setQuery(conn, 'update doctor set status = ? where userId = (select accountAdmin from account where accountid = ?)', [1, accountId]);
         return accountResult.affectedRows;
     })
 }
 //Assign class to teacher
 exports.assignClassToTeacher = async function (teacherid, classObject) {
-    let result = await db.setQuery(conn, 'update doctor set ? where userid = ?', [classObject, teacherid]);
+    let result = await db.setQuery(conn, 'update doctor set ? where userId = ?', [classObject, teacherid]);
     return result.affectedRows
 }
 //Assign subject to Teacher
-exports.assignSubjectToClass = async function (accountid, userid, classes, subjects) {
+exports.assignSubjectToClass = async function (accountid, userId, classes, subjects) {
     return db.transaction(async function (conn) {
-        let r = await db.setQuery(conn, 'select * from subjects where userid = ? and class = ?', [userid, classes]);
-        var rArray = [];
+        let r = await db.setQuery(conn, 'select * from subjects where userId = ? and class = ?', [userId, classes]);
+        let rArray = [];
         for (j = 0; j < r.length; j++) {
             rArray.push(r[j].subjects)
         }
-        var deleteList = rArray.filter(function (item, pos) {
+        let deleteList = rArray.filter(function (item, pos) {
             return subjects.indexOf(item) !== pos
         })
-        var insertList = subjects.filter(function (item, pos) {
+        let insertList = subjects.filter(function (item, pos) {
             return rArray.indexOf(item) !== pos;
         })
         if (deleteList && deleteList.length > 0) {
-            await db.setQuery(conn, 'delete from subjects where userid= ? and class = ?', [userid, classes]);
+            await db.setQuery(conn, 'delete from subjects where userId= ? and class = ?', [userId, classes]);
         }
-        var bulkInsert = [];
+        let bulkInsert = [];
         insertList.forEach(function (subjects) {
-            bulkInsert.push([userid, subjects, classes])
+            bulkInsert.push([userId, subjects, classes])
         })
-        let result = await db.setQuery(conn, 'insert into subjects(userid, subjects, class) values ?', [bulkInsert]);
+        let result = await db.setQuery(conn, 'insert into subjects(userId, subjects, class) values ?', [bulkInsert]);
         return result.affectedRows
     })
 }
 //Get subject For Teacher
-exports.getSubjectForClass = async function (userid, classes) {
+exports.getSubjectForClass = async function (userId, classes) {
     return db.transaction(async function (conn) {
-        let results = await db.setQuery(conn, 'select * from subjects where userid = ? and class = ?', [userid, classes]);
+        let results = await db.setQuery(conn, 'select * from subjects where userId = ? and class = ?', [userId, classes]);
         return results
     })
 }
 
 
-function getAllProvidersByAccountId(accountid, userid, callback) {
-    return checkAdminWithAccount(userid, accountid).then(function () {
-        return db.query('SELECT d.userid, firstname, lastname, cellnumber, emailid, status, userrole, gender, class, section, subject, qualification from doctor d INNER JOIN doctor_account da where d.userid = da.userid and accountid = ? and d.status = ?', [accountid, UserEnum.UserStatus.Active]).then(function (results) {
+function getAllProvidersByAccountId(accountid, userId, callback) {
+    return checkAdminWithAccount(userId, accountid).then(function () {
+        return db.query('SELECT d.userId, firstname, lastname, cellnumber, emailid, status, userrole, gender, class, section, subject, qualification from doctor d INNER JOIN doctor_account da where d.userId = da.userId and accountid = ? and d.status = ?', [accountid, UserEnum.UserStatus.Active]).then(function (results) {
             callback(null, results);
         })
     }).catch(function (ex) {
@@ -271,44 +282,75 @@ function getAllProvidersByAccountId(accountid, userid, callback) {
 }
 
 exports.updateYourPassword = async function(forgotObj) {
-    let result = await db.query('update userdetails set password = ? where adharnumber = ? and cellnumber = ? and dob = ? and userrole = ?',[forgotObj.password, forgotObj.adharnumber, forgotObj.cellnumber, forgotObj.dob, forgotObj.userrole]);
+    let result = await db.query('update userDetails set password = ? where adharnumber = ? and cellnumber = ? and dob = ? and userrole = ?',[forgotObj.password, forgotObj.adharnumber, forgotObj.cellnumber, forgotObj.dob, forgotObj.userrole]);
     return result
 }
-exports.checkPassword = async (userid) => {
-    var result = await db.query('select password from userdetails where userid = ?', [userid])
+exports.checkPassword = async (userId) => {
+    let result = await db.query('select password from userDetails where userId = ?', [userId])
     return result[0]
 }
-exports.changePassword = async (password, userid) => {
-    var result = await db.query('update userdetails set password = ? where userid = ?', [password, userid])
+exports.changePassword = async (updateObj, userId) => {
+    let result = await db.query('update userDetails set ? where userId = ?', [updateObj, userId])
     return result
 }
-exports.getUserDetailsByEmailId = async function(emailid) {
-    let userDetails = await db.query("select userid, firstname, lastname, cellnumber, emailid, userrole, status from userdetails where username = ?",[emailid]);
+exports.getUserDetailsByEmailId = async (hashedEmailId) => {
+    let userDetails = await db.query("select userId, firstName, lastName, cellNumber, emailId, userrole, status, wrongPasswordCount from userDetails where userName = ?",[hashedEmailId]);
     return userDetails;
 };
-exports.createPasswordChangeRequest = async function(passwordchangeReqObj) {
-    let result = await db.query("insert into password_changerequest set ? ", [passwordchangeReqObj]);
+exports.getUserIdByRefershToken = async (refreshToken) => {
+    let results = await db.query(`SELECT * from userDetails ud INNER JOIN refreshTokenPortal rt where ud.userId = rt.userId and refreshToken = ?`, [refreshToken]);    return results;
+}
+exports.getUserDetailsToUnlockUser = async (userId, userrole, status) => {
+    let userID = await db.query('select * from userDetails where userId = ? and userrole = ? and status = ?', [userId, userrole, status]);
+    return userID[0];
+}
+exports.getUserDetails = async (userId) => {
+    let userID = await db.query('select * from userDetails where userId = ?', [userId]);
+    return userID;
+}
+exports.createPasswordChangeRequest = async (passwordChangeReqObj) => {
+    let result = await db.query("insert into passwordChangeRequest set ? ", [passwordChangeReqObj]);
     return result;
 };
 
+exports.updateStatusLockToUnlock = async (userId, userrole, lockStatus, unlockStatus) =>{
+    let result = await db.query(`UPDATE userDetails set status = ?, wrongPasswordCount = ?  where userId = ? and userrole = ?`,[unlockStatus, 0, userId, userrole])
+    return result.affectedRows;
+}
+exports.updateStudentStatusPassword = async (userId, userrole, lockStatus, unlockStatus, password) =>{
+    let result = await db.query(`UPDATE userDetails set status = ?, password = ?, wrongPasswordCount = ?  where userId = ? and userrole = ? and status = ?`,[unlockStatus, password, 0, userId, userrole, lockStatus])
+    return result.affectedRows;
+}
+exports.updateUserPassword = async (userObj) =>{
+    let result = await db.query("UPDATE userDetails set password = ? where userId = ? and userrole = ? and status = ?",[userObj.password, userObj.userId, userObj.userrole, userObj.status])
+    return result.affectedRows;
+}
+exports.getDoctorDetails = async (userObj) =>{
+    let result = await db.query("select firstName, lastName, emailId from userDetails where userId = ? and userrole = ? and status = ?",[userObj.userId, userObj.userrole, userObj.status])
+    return result;
+}
 exports.getPasswordChangeRequestByToken = async function(token, currentDatetime) {
-    let result = await db.query("select userid, initiatedby from password_changerequest where token = ? and expiredatetime >= ?",[token, currentDatetime]);
+    let result = await db.query("select userId, initiatedby from password_changerequest where token = ? and expiredatetime >= ?",[token, currentDatetime]);
     return result;
 };
-exports.checkfirsttimelogin = async userid => {
-    let result = await db.query("select * from userdetails where userid = ?", userid);
+exports.getPasswordChangeRequestByToken = async(token, currentDatetime) => {
+    let result = db.query('select userId, initiatedBy from passwordChangeRequest where token = ? and expireDatetime >= ?', [token, currentDatetime]);
+    return result
+}
+exports.checkfirsttimelogin = async userId => {
+    let result = await db.query("select * from userDetails where userId = ?", userId);
     return result;
 };
-exports.setUserPasswordByUserId = async function(userid, newpassword) {
-    let result = await db.query("update userdetails set password = ?,passwordchangecount=passwordchangecount+1, status = 1,wrongpasswordcount=0 where userid = ? ",[newpassword, userid]);
+exports.setUserPasswordByUserId = async function(userId, newpassword) {
+    let result = await db.query("update userDetails set password = ?,passwordchangecount=passwordchangecount+1, status = 1,wrongpasswordcount=0 where userId = ? ",[newpassword, userId]);
     return result;
 };
-exports.deletePasswordChangeRequest = async function(token, userid) {
-    let result = await db.query("delete from  password_changerequest  where token = ? and initiatedby = ?",[token, userid]);
+exports.deletePasswordChangeRequest = async (token, userId) => {
+    let result = await db.query("delete from  passwordChangeRequest  where token = ? and userId = ?",[token, userId]);
     return result;
 };
-exports.removeAccessTokenFromDB = async function(userid) {
-  let result =  await db.query("DELETE FROM refreshTokenPortal WHERE userid=?", [userid]);
+exports.removeAccessTokenFromDB = async function(userId) {
+  let result =  await db.query("DELETE FROM refreshTokenPortal WHERE userId=?", [userId]);
   return result;
 };
 exports.getAllProvidersByAccountId = getAllProvidersByAccountId;

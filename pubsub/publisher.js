@@ -48,31 +48,61 @@ Publisher.prototype.publishSms = function (msg) {
                 return ch.close();
             }); // Save msg to Database.
         }).finally(function () { conn.close(); });
-    }).catch(logger.error);
+    }).catch("not able to");
 };
 
 var publisher = new Publisher();
 
-exports.publishEmailEventForCreateStaff = function (msg) {
-    msg.type = "Welcome_Email_Provider";
+exports.publishEmailEventForCreateDirector = function (msg) {
+    msg.type = "Welcome_Email_Director";
     msg.routingKey = "Isage.SignupEvent";
     publisher.publishEmail(msg);
 }
 
-exports.publishEmailEventForCreateSchool = function (msg) {
+exports.publishEmailEventForCreatePrincipal = function (msg) {
     msg.type = "Welcome_Email_Principal";
     msg.routingKey = "Isage.SignupEvent";
     publisher.publishEmail(msg);
 }
 
+exports.publishEmailEventForCreateStaff = function (msg) {
+    msg.type = "Welcome_Email_Staff";
+    msg.routingKey = "Isage.SignupEvent";
+    publisher.publishEmail(msg);
+}
+exports.publishEmailEventForAssignClass = function(msg) {
+    msg.type = "Assign_Class_Teacher";
+    msg.routingKey = "Isage.SignupEvent";
+    publisher.publishEmail(msg); 
+}
+exports.publishEmailEventForUnAssignClass = function(msg) {
+    msg.type = "UnAssign_Class_Teacher";
+    msg.routingKey = "Isage.SignupEvent";
+    publisher.publishEmail(msg); 
+}
+exports.publishEmailEventForInactivateUser = function(msg) {
+    msg.type = "Inactivate_User";
+    msg.routingKey = "Isage.SignupEvent";
+    publisher.publishEmail(msg); 
+}
+exports.publishEmailEventForReactivateUser = function(msg) {
+    msg.type = "Reactivate_User";
+    msg.routingKey = "Isage.SignupEvent";
+    publisher.publishEmail(msg); 
+}
+exports.pubishEmailEventForForgotPassword = function(msg) {
+    msg.type = "Forgot_Password";
+    msg.routingKey = "Isage.SignupEvent";
+    publisher.publishEmail(msg); 
+}
 exports.pubishEmailEventForResetPassword = function(msg) {
-    msg.type = "Forgot_Password_Emailid";
+    msg.type = "Reset_Password";
     msg.routingKey = "Isage.SignupEvent";
     publisher.publishEmail(msg); 
 }
 exports.publishWelcomeSmsToStudent = function (msg) {
     msg.type = "Send_Welcome_Message";
     msg.routingKey = "Isage.OtpEvent";
-    publisher.publishes(msg);
+    publisher.publishEmail(msg);
 }
 

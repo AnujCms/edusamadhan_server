@@ -5,13 +5,13 @@ const eventIdParams = Joi.object({
 })
 
 const eventsObject = Joi.object({
-    eventname:Joi.string().required(),
-    eventstartdate: Joi.string().required(),
-    eventenddate:Joi.string().required(),
-    eventdetails:Joi.array().allow("").items(Joi.number().valid(1,2,3,4,5,6,7,8)),
-    eventdescription:Joi.string().required(),
-    eventtype: Joi.number().required(),
-    eventid: Joi.number().allow('')
+    eventName:Joi.string().required(),
+    eventStartdate: Joi.string().required(),
+    eventEnddate:Joi.string().required(),
+    eventDetails:Joi.array().allow("").items(Joi.number().valid(1,2,3,4,5,6,7,8)),
+    eventDescription:Joi.string().required(),
+    eventType: Joi.number().required(),
+    eventId: Joi.number().allow('')
 })
 
 exports.eventsObject = eventsObject;

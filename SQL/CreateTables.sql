@@ -491,3 +491,92 @@ CREATE TABLE `studentAttendance` (
   `modifieddate` datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`attendanceid`)
 ) ENGINE=InnoDB AUTO_INCREMENT=104 DEFAULT CHARSET=latin1
+
+
+**********************
+
+CREATE TABLE `classSeats` (
+  `classSeatId` int(11) NOT NULL AUTO_INCREMENT,
+  `accountId` varchar(255) NOT NULL,
+  `userId` int(11) NOT NULL,
+  `class` int(11) NOT NULL,
+  `section` int(11) NOT NULL,
+  `session` int(11) NOT NULL,
+  `totalRows` int(11) Not Null,
+  `totalColumns` int(11) NOT NULL,
+  `totalSeats` int(11) NOT NULL,
+  `createddate` datetime DEFAULT CURRENT_TIMESTAMP,
+  `modifieddate` datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`classSeatId`)
+) ENGINE=InnoDB AUTO_INCREMENT=104 DEFAULT CHARSET=latin1
+
+**********************
+
+CREATE TABLE `mixedClassStudent` (
+  `mixedClassStudentId` int(11) NOT NULL AUTO_INCREMENT,
+  `accountId` varchar(255) NOT NULL,
+  `userId` int(11) NOT NULL,
+  `session` int(11) NOT NULL,
+  `mixedOptions` int(11) NOT NULL,
+  `classArray` JSON NOT NULL,
+  `mixedStudentList` JSON NOT NULL,
+  `overFlowStudentList` JSON NOT NULL,
+  `createddate` datetime DEFAULT CURRENT_TIMESTAMP,
+  `modifieddate` datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`mixedClassStudentId`)
+) ENGINE=InnoDB AUTO_INCREMENT=104 DEFAULT CHARSET=latin1
+
+**********************
+
+CREATE TABLE `seatingArrangement` (
+  `seatingArrangementId` int(11) NOT NULL AUTO_INCREMENT,
+  `accountId` varchar(255) NOT NULL,
+  `userId` int(11) NOT NULL,
+  `session` int(11) NOT NULL,
+  `classId` int(11) NOT NULL,
+  `section` int(11) NOT NULL,
+  `totalColumns` int(11) NOT NULL,
+  `totalRows` int(11) NOT NULL,
+  `totalSeats` int(11) NOT NULL,
+  `mixedOptions` int(11) NOT NULL,
+  `classArray` JSON NOT NULL,
+  `mixedStudentList` JSON NOT NULL,
+  `createddate` datetime DEFAULT CURRENT_TIMESTAMP,
+  `modifieddate` datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`seatingArrangementId`)
+) ENGINE=InnoDB AUTO_INCREMENT=104 DEFAULT CHARSET=latin1
+
+**********************
+alter table classSeats add column isAssigned int after totalSeats;
+********************
+
+CREATE TABLE `director_user` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `accountId` varchar(255) NOT NULL,
+  `directorId` int(11) NOT NULL,
+  `userId` int(11) NOT NULL,
+  `createddate` datetime DEFAULT CURRENT_TIMESTAMP,
+  `modifieddate` datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB AUTO_INCREMENT=104 DEFAULT CHARSET=latin1
+
+**********************************
+
+CREATE TABLE `user_config` (
+  `configId` int(11) NOT NULL AUTO_INCREMENT,
+  `accountId` varchar(255) NOT NULL,
+  `userId` int(11) NOT NULL,
+  `confidData` JSON NOT NULL,
+  `createddate` datetime DEFAULT CURRENT_TIMESTAMP,
+  `modifieddate` datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`configId`)
+) ENGINE=InnoDB AUTO_INCREMENT=104 DEFAULT CHARSET=latin1
+
+******************************
+CREATE TABLE `config` (
+  `configid` int(11) NOT NULL AUTO_INCREMENT,
+  `configdata` JSON NOT NULL,
+  `createddate` datetime DEFAULT CURRENT_TIMESTAMP,
+  `modifieddate` datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`configid`)
+) ENGINE=InnoDB AUTO_INCREMENT=104 DEFAULT CHARSET=latin1

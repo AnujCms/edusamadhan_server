@@ -1,6 +1,24 @@
-var db = require('./db.js');
-var UserEnum = require('../lookup/UserEnum');
+const db = require('./db.js');
+const UserEnum = require('../lookup/UserEnum');
+const {formatDate} = require('../api/ValidationFunctions');
 
+//Check user belongs to user
+exports.checkProviderByAccountID = async (userId, accountId) => {
+    let userAccountId = await db.query('select accountId from teacher_principal where userId = ?', [userId])
+    if (userAccountId.length > 0) {
+        let result = userAccountId[0].accountId.localeCompare(accountId);
+        if (result === 0) {
+            return true
+        } else if (result === -1 || result === undefined) {
+            return false
+        }
+        else {
+            return false
+        }
+    } else {
+        return false
+    }
+}
 function checkAdminWithAccount(userid, accountid) {
     return db.query('SELECT EXISTS (SELECT 1 from account where accountAdmin = ? and accountid = ? ) as isAccountExist', [userid, accountid]).then(function (results) {
         if (results[0].isAccountExist != 1) {
@@ -10,141 +28,178 @@ function checkAdminWithAccount(userid, accountid) {
         }
     });
 }
-exports.checkProviderByAccountID = async function (teacherid, accountid) {
-    let facultyAccountId = await db.query('select accountid from teacher_principal where userid = ?',[teacherid])
-   if(facultyAccountId.length>0){
-    let result = facultyAccountId[0].accountid.localeCompare(accountid);
-    if(result === 0){
-        return true
-    }else if(result === -1 || result === undefined){
+exports.checkRelationDirectorUser = async (accountid, userId) => {
+    let facultyAccountId = await db.query('select accountid from teacher_principal where userid = ?', [userId])
+    if (facultyAccountId.length > 0) {
+        let result = facultyAccountId[0].accountid.localeCompare(accountid);
+        if (result === 0) {
+            return true
+        } else if (result === -1 || result === undefined) {
+            return false
+        }
+        else {
+            return false
+        }
+    } else {
         return false
     }
-    else{
-        return false
-    }
-}else{
-    return false
 }
+exports.deleteUsers = (userId, accountId, userroleArray) => {
+    return db.transaction(async (conn) => {
+        await db.setQuery(conn, 'delete from teacher_principal where userId = ? and accountId = ?', [userId, accountId]);
+        let users = await db.setQuery(conn, `delete from userDetails where userrole IN(${userroleArray}) and userId = ?`, [userId]);
+        return users;
+    })
 }
-exports.deleteUsers = async function (userid) {
-    let users = await db.query('delete from userdetails where userrole = ? or userrole = ? and userid = ?',[UserEnum.UserRoles.ExamHead , UserEnum.UserRoles.FeeAccount, userid]);
+exports.unAssignedClass = async (userId) => {
+    let users = await db.query('update userDetails set classId = ? , sectionId = ? where userrole = ? and userId = ?', [0, 0, UserEnum.UserRoles.Teacher, userId]);
     return users;
 }
-exports.unAssignedClass = async function (userid) {
-    let users = await db.query('update userdetails set classid = ? , section = ? where userrole = ? and userid = ?',[0,0,UserEnum.UserRoles.Teacher , userid]);
-    return users;
-}
-exports.deleteTeacher = async function (userid) {
-    let teachers = await db.query('delete from userdetails where userrole = ? and userid = ? and classid not in(1,2,3,4,5,6,7)',[UserEnum.UserRoles.Teacher, userid]);
+
+exports.getAllStaffByAccountId = async (accountId, principalId, userType) => {
+    let teachers = await db.query('SELECT d.userId, firstName, lastName, cellNumber, aadharNumber, emailId, status, images, d.userrole, gender, classId, sectionId, subject, qualification from userDetails d INNER JOIN teacher_principal da where d.userId = da.userId and accountId = ? and principalId = ? and userType = ? ', [accountId, principalId, userType]);
     return teachers;
 }
-exports.getAllProvidersByAccountId = async function (accountid, userid, callback) {
-    let result = await checkAdminWithAccount(userid, accountid);
-    if (result == 1) {
-        let teachers = await db.query('SELECT d.userid, firstname, lastname, cellnumber, adharnumber, emailid, status, images, userrole, gender, classid, section, subject, qualification from userdetails d INNER JOIN teacher_principal da where d.userid = da.userid and accountid = ? and d.status = ?', [accountid, UserEnum.UserStatus.Active]);
-        return teachers;
-    } else {
-        return [];
-    }
-}
 //get all account
-exports.getAllAccounts = async function (userid) {
-    let result = await db.query('SELECT accountid, accountname from account where accountadmin = ?', [userid]);
+exports.getAllAccounts = async (userId) => {
+    let result = await db.query('SELECT accountId, accountName from account where accountAdmin = ?', [userId]);
     return result;
 }
 
-//get students for class teacher
-exports.getAllStudentsByPrincipal = async function (teacherid) {
-    return db.transaction(async function (conn) {
-    let classData = await db.setQuery(conn, 'select classid, section, session from userdetails where userid = ?', teacherid);
-    if (classData[0].classid) {
-        let results = await db.setQuery(conn, 'CALL SQSP_GetPatientlist(?,?,?,?)', [classData[0].classid, classData[0].section, classData[0].session, parseInt(teacherid)]);
-        return JSON.parse(JSON.stringify(results[0]));
-    }else{
-        return 0;
-    }
-})
+//get assigned class and section
+exports.getAssignedClassAndSection = async (userId) => {
+    let result = await db.query('select classId, sectionId from userDetails where userId = ?', [userId]);
+    return result;
 }
 //get config
-exports.getConfigByAccountId = async function (accountid, userid) {
-    let result = await checkAdminWithAccount(userid, accountid);
+exports.getConfigByAccountId = async (accountId, userId) => {
+    let result = await checkAdminWithAccount(userId, accountId);
     if (result == 1) {
-        let configData = await db.query('select configdata from config where configid = (select configid from account where accountid = ?)', [accountid]);
+        let configData = await db.query('select configData from config where configId = (select configId from account where accountId = ?)', [accountId]);
         return configData;
     } else {
         return [];
     }
 }
 //create teacher by principal
-exports.createTeacher = async function (teacherObj, userid, accountid) {
-    return db.transaction(async function (conn) {
-        let result = await checkAdminWithAccount(userid, accountid);
-        if (result == 1) {
-            var r = await db.setQuery(conn, 'INSERT into userdetails set ?',[teacherObj])
-        if(r.affectedRows == 1){
-            let loopUpEntry = { "accountid": accountid, "userid": r.insertId };
+exports.createTeacher = (teacherObj, userId, accountId, userType, entranceExamType) => {
+    return db.transaction(async (conn) => {
+        let result = await db.setQuery(conn, 'INSERT into userDetails set ?', [teacherObj])
+        if (result.affectedRows == 1) {
+            let attendanceObj = {
+                staffId: result.insertId,
+                userId: userId,
+                sessionId: teacherObj.sessionId,
+                attendanceDate: formatDate(new Date()),
+                attendance: 1
+            }
+            await db.setQuery(conn, 'insert into staffAttendance set ?', [attendanceObj]);
+            let loopUpEntry = { "accountId": accountId, "principalId": userId, "userId": result.insertId, "userType": userType, "userrole": teacherObj.userrole, "entranceExamType": entranceExamType };
             let results = await db.setQuery(conn, 'INSERT INTO teacher_principal SET ?', loopUpEntry);
             return results.affectedRows;
-        }else{
-            return 0
-        }
         } else {
-            return 0;
+            return 0
         }
     })
 }
 //update teacher details
-exports.updateTeacherDetails = async function (userid, teacherObj) {
-    let results = await db.query('update userdetails set ? where userid = ?', [teacherObj, userid]);
-    return results.affectedRows;
+exports.updateTeacherDetails = (userId, teacherObj, entranceExamType) => {
+    return db.transaction(async (conn) => {
+        let loopUpEntry = { "userrole": teacherObj.userrole, "entranceExamType": entranceExamType };
+        await db.setQuery(conn, 'update teacher_principal set ? where userId = ?', [loopUpEntry, userId]);
+        let results = await db.setQuery(conn, 'update userDetails set ? where userId = ?', [teacherObj, userId]);
+        return results.affectedRows;
+    })
 }
 //get teacher details for update by principal
-exports.getTeacherDetailForUpdate = async function (teacherid) {
-    let result = await db.query('select userid, firstname, lastname, cellnumber, adharnumber, images,emailid, status, userrole, gender, classid, subject, qualification, dob, parmanentaddress, localaddress, salary from userdetails where userid = ?', [teacherid]);
-    return result;
+exports.getTeacherDetailForUpdate = async (accountId, principalId, userId, userType) => {
+    let teachers = await db.query('SELECT d.userId, firstName, lastName, cellNumber, aadharNumber, emailId, status, images, d.userrole, gender, classId, sectionId, subject, qualification, workExperience, educationalAwards, awardDetails, dob, parmanentAddress, localAddress, da.entranceExamType, salary from userDetails d INNER JOIN teacher_principal da where d.userId = da.userId and da.accountId = ? and da.principalId = ? and da.userId = ? and da.userType = ?', [accountId, principalId, userId, userType]);
+    return teachers;
 }
 //get assigned class
-exports.getAssignedClass = async function (userid) {
-    let results = await db.query('select classid, section from userdetails where userid = ?', [userid]);
+exports.getAssignedClass = async (userId) => {
+    let results = await db.query('select classId, sectionId from userDetails where userId = ?', [userId]);
     return results;
 }
+
+//get teacher Details
+exports.getTeacherDetails = async (userId) => {
+    let results = await db.query('select * from userDetails where userId = ?', [userId]);
+    return results;
+}
+
 //Assign class to teacher
-exports.assignClassToTeacher = async function (teacherid, classObject, accountid) {
-    return db.transaction(async function (conn) {
-        let isClassAssigned = await db.setQuery(conn, 'select userid from userdetails where userid in(select userid from teacher_principal where accountid = ?) and classid = ? and section = ?', [accountid, classObject.classid, classObject.section]);
-        if(isClassAssigned.length){
+exports.assignClassToTeacher = async (teacherId, classObject, accountId) => {
+    return db.transaction(async (conn) => {
+        let isClassAssigned = await db.setQuery(conn, 'select userId from userDetails where userId in(select userId from teacher_principal where accountId = ?) and classId = ? and sectionId = ?', [accountId, classObject.classId, classObject.sectionId]);
+        if (isClassAssigned.length) {
             return 0
-        }else{
-        let result = await db.setQuery(conn, 'update userdetails set ? where userid = ?', [classObject, teacherid]);
-         return result.affectedRows
+        } else {
+            let result = await db.setQuery(conn, 'update userDetails set ? where userId = ?', [classObject, teacherId]);
+            return result.affectedRows
         }
     })
-
 }
 //get subjects by selected class
-exports.getSubjectForClass = async function (userid, classes) {
-    let results = await db.query('select * from subjects where userid = ? and class = ?', [userid, classes]);
-    if(results){
+exports.getSubjectForClass = async (accountId, userId, classId) => {
+    let results = await db.query('select * from subjectDetails where accountId = ? and userId = ? and classId = ?', [accountId ,userId, classId]);
+    if (results) {
         return results
-    }else{
+    } else {
         return 0
     }
 }
 //assign subjects to selected class
-exports.assignSubjectToClass = async function (subjectObject) {
-    return db.transaction(async function (conn) {
-        let r = await db.query('select * from subjects where userid = ? and class = ?', [subjectObject.userid, subjectObject.class]);
+exports.assignSubjectToClass =  (subjectObject) => {
+    return db.transaction(async (conn) => {
+        let r = await db.query('select * from subjectDetails where accountId = ? and userId = ? and classId = ?', [subjectObject.accountId, subjectObject.userId, subjectObject.classId]);
         let result
-        if(r.length>0){
-        result = await db.setQuery(conn, 'update subjects set subjects = ? where userid = ? and class = ?', [subjectObject.subjects, subjectObject.userid, subjectObject.class]);
-        }else{
-            result = await db.setQuery(conn, 'insert into subjects set ? ', [subjectObject]);
+        if (r.length > 0) {
+            result = await db.setQuery(conn, 'update subjectDetails set subjects = ? where accountId = ? and userId = ? and classId = ?', [subjectObject.subjects, subjectObject.accountId, subjectObject.userId, subjectObject.classId]);
+        } else {
+            result = await db.setQuery(conn, 'insert into subjectDetails set ? ', [subjectObject]);
         }
         return result.affectedRows
     })
 }
 //get Principal Details
-exports.getPrincipalDetails = async (userid) => {
-    var result = await db.query('select * from userdetails where userid=?', [userid])
+exports.getPrincipalDetails = async (userId) => {
+    let result = await db.query('select * from userDetails where userId=?', [userId])
     return result
+}
+
+//**************************** */
+//save the staff Attendance
+exports.saveStaffAttendance = (attendanceObj) => {
+    return db.transaction(async (conn) => {
+        let Result = await db.setQuery(conn, 'select * from staffAttendance where staffId = ? and userId=? and sessionId = ? and attendanceDate = ?', [attendanceObj[0][0], attendanceObj[0][1], attendanceObj[0][2], attendanceObj[0][3]]);
+        if (Result.length > 0) {
+            if (attendanceObj.length > 0) {
+                let updateResult = ''
+                for (let i = 0; i < attendanceObj.length; i++) {
+                    let dataToUpdate = {
+                        attendance: attendanceObj[i][4],
+                        reason: attendanceObj[i][5]
+                    }
+                    updateResult = await db.setQuery(conn, `update staffAttendance set ? where staffId = ? and userId=? and sessionId = ? and attendanceDate = ?`, [dataToUpdate, attendanceObj[i][0], attendanceObj[i][1], attendanceObj[i][2], attendanceObj[i][3]]);
+                }
+                return updateResult.affectedRows
+            }
+        } else {
+            let result = await db.setQuery(conn, 'insert into staffAttendance (staffId, userId, sessionId, attendanceDate, attendance, reason) values ?', [attendanceObj]);
+            return result.affectedRows;
+        }
+    })
+}
+
+//get Staff attendance by date
+exports.getStaffAttendanceOfDate = async (attendanceObj) => {
+    let Result = await db.query('select * from staffAttendance where userId = ? and attendanceDate = ? and sessionId = ? ', [attendanceObj.userId, attendanceObj.attendanceDate, attendanceObj.sessionId]);
+    return Result;
+}
+
+//get Staff Attendance Of Selected Dates
+exports.getStaffAttendanceOfSelectedDates = async (attendanceObj) => {
+    let Result = await db.query(`select * from staffAttendance where userId = ? and sessionId = ? and attendanceDate BETWEEN ? AND ?`, [attendanceObj.userId, attendanceObj.sessionId, attendanceObj.startDate, attendanceObj.endDate]);
+    return Result;
 }

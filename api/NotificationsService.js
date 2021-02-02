@@ -3,15 +3,16 @@ const notificationDB = require("../database/NotificationDB.js");
 const UserEnum = require('../lookup/UserEnum');
 const joiSchema = require('../apiJoi/notifications.js');
 const middleWare = require('../apiJoi/middleWare.js');
+const encrypt = require('../utils/encrypt');
 
-const isPrincipal = function (req, res, next) {
+const isPrincipal = (req, res, next) => {
     if (req.user.role === UserEnum.UserRoles.Principal || req.user.role === UserEnum.UserRoles.Teacher) {
         return next();
     } else {
         return res.status(200).json({ status: 0, statusDescription: "Unauthenticted user." });
     }
 }
-const isStudentOrTeacheroraccounttantOrExamHead = function (req, res, next) {
+const isStudentOrTeacheroraccounttantOrExamHead = (req, res, next) => {
     if (req.user.role === UserEnum.UserRoles.Student || req.user.role === UserEnum.UserRoles.Teacher || req.user.role === UserEnum.UserRoles.ExamHead || req.user.role === UserEnum.UserRoles.FeeAccount) {
         return next();
     } else {
@@ -22,33 +23,33 @@ const notificationsObject = middleWare(joiSchema.notificationsObject, "body", tr
 const notificationIdParams =  middleWare(joiSchema.notificationIdParams, "params", true);
 
 //save school Notification
-router.post("/notificationRegistration", isPrincipal, notificationsObject, async function (req, res) {
+router.post("/notificationRegistration", isPrincipal, notificationsObject, async (req, res) => {
     let notificationsObject = {
-        accountid: req.user.accountid,
-        userid: req.user.userid,
-        createdby:req.user.role,
-        session:JSON.parse(req.user.configdata).session,
-        notificationuser: req.body.notificationuser,
-        notificationsubject: req.body.notificationsubject,
-        notificationcreateddate: req.body.notificationcreateddate,
-        notificationdescription: req.body.notificationdescription
+        accountId: req.user.accountId,
+        createdBy:req.user.userId,
+        userrole: req.user.role,
+        sessionId:JSON.parse(req.user.configData).sessionId,
+        notificationUser: req.body.notificationUser,
+        notificationSubject: req.body.notificationSubject,
+        notificationCreatedDate: req.body.notificationCreatedDate,
+        notificationDescription: req.body.notificationDescription
     }
     let result = '';
-    if(req.body.notificationid){
-        result = await notificationDB.updateSchoolNotification(notificationsObject,req.body.notificationid, JSON.parse(req.user.configdata).session);
+    if(req.body.notificationId){
+        result = await notificationDB.updateSchoolNotification(notificationsObject,req.body.notificationId, JSON.parse(req.user.configData).sessionId);
     }else{
         result = await notificationDB.saveSchoolNotification(notificationsObject);
     }
     if (result) {
-        res.status(200).json({ status: 1, statusDescription: req.body.notificationid?'Notification has been updated successfully.':'Notification has been created successfully.' });
+        res.status(200).json({ status: 1, statusDescription: req.body.notificationId?'Notification has been updated successfully.':'Notification has been created successfully.' });
     } else {
         res.status(200).json({ status: 0, statusDescription: 'Notification not created.' });
     }
 });
 
 //get Notification by event id
-router.get("/getnotificationtbyid/:notificationId", isPrincipal, notificationIdParams, async function (req, res) {
-let notificationData = await notificationDB.getSchoolNotificationsById(req.params.notificationId, req.user.userid, req.user.accountid, JSON.parse(req.user.configdata).session);
+router.get("/getnotificationtbyid/:notificationId", isPrincipal, notificationIdParams, async (req, res) => {
+let notificationData = await notificationDB.getSchoolNotificationsById(req.params.notificationId, req.user.userId, req.user.accountId, JSON.parse(req.user.configData).sessionId);
 if(notificationData.length>0){
     res.status(200).json({ status: 1, statusDescription: notificationData });
 }else{
@@ -57,8 +58,8 @@ if(notificationData.length>0){
 })
 
 //get school Notifications
-router.get("/getschoolnotifications", isPrincipal, async function (req, res) {
-    let notificationData = await notificationDB.getSchoolNotifications(req.user.userid, req.user.accountid, JSON.parse(req.user.configdata).session);
+router.get("/getschoolnotifications", isPrincipal, async (req, res) => {
+    let notificationData = await notificationDB.getSchoolNotifications(req.user.userId, req.user.role, req.user.accountId, JSON.parse(req.user.configData).sessionId);
     if(notificationData.length>0){
         res.status(200).json({ status: 1, statusDescription: notificationData });
     }else{
@@ -67,14 +68,17 @@ router.get("/getschoolnotifications", isPrincipal, async function (req, res) {
     })
 
 //get school Notifications for student
-router.get("/getschoolnotificationsbyuserrole", isStudentOrTeacheroraccounttantOrExamHead, async function (req, res) {
+router.get("/getschoolnotificationsbyuserrole", async (req, res) => {
     let notificationData = '';
-    if(req.user.role === 2){
-        notificationData = await notificationDB.getSchoolNotificationsForStudents(req.user.accountid, req.user.role, JSON.parse(req.user.configdata).session, req.user.userid);
-    }else if(req.user.role === 3){
-        notificationData = await notificationDB.getSchoolNotificationsForTeacher(req.user.accountid, req.user.role, JSON.parse(req.user.configdata).session);
-    }else{
-        notificationData = await notificationDB.getSchoolNotificationsForUser(req.user.accountid, req.user.role, JSON.parse(req.user.configdata).session);
+    if(req.user.role === UserEnum.UserRoles.Principal){
+        notificationData = await notificationDB.getSchoolNotificationsForPrincipal(req.user.accountId, req.user.userId, req.user.role, JSON.parse(req.user.configData).sessionId);
+    }else if(req.user.role === UserEnum.UserRoles.Teacher){
+        notificationData = await notificationDB.getSchoolNotificationsForTeacher(req.user.accountId, req.user.userId, req.user.role, JSON.parse(req.user.configData).sessionId);
+    }else if(req.user.role === UserEnum.UserRoles.Student){
+        notificationData = await notificationDB.getSchoolNotificationsForStudent(req.user.accountId, req.user.userId, req.user.role, JSON.parse(req.user.configData).sessionId);
+    }
+    else{
+        notificationData = await notificationDB.getSchoolNotificationsForUser(req.user.accountId, req.user.role, JSON.parse(req.user.configData).sessionId);
     }
     if(notificationData.length>0){
         res.status(200).json({ status: 1, statusDescription: notificationData });
@@ -83,8 +87,8 @@ router.get("/getschoolnotificationsbyuserrole", isStudentOrTeacheroraccounttantO
     }
     })
 //delete school Notification 
-router.delete("/deletenotifications/:notificationId", isPrincipal, notificationIdParams, async function (req, res) {
-    let notificationData = await notificationDB.deleteSchoolEvents(req.user.userid, req.user.accountid, req.params.notificationId);
+router.delete("/deletenotifications/:notificationId", isPrincipal, notificationIdParams, async (req, res) => {
+    let notificationData = await notificationDB.deleteSchoolEvents(req.user.userId, req.user.role, req.user.accountId, req.params.notificationId);
     if(notificationData.affectedRows){
         res.status(200).json({ status: 1, statusDescription: "Selected notification has been deleted successfully" });
     }else{

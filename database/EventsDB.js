@@ -1,33 +1,33 @@
 const db = require('./db.js');
-var UserEnum = require('../lookup/UserEnum');
+const UserEnum = require('../lookup/UserEnum');
 
 //save school events
-exports.saveSchoolEvent = async function (eventsObjects) {
-    let Result = await db.query('insert into schoolevents set ?', [eventsObjects]);
+exports.saveSchoolEvent = async (eventsObjects) => {
+    let Result = await db.query('insert into schoolEvents set ?', [eventsObjects]);
     return Result;
 }
 //get school events for update
-exports.getSchoolEventsById = async function(eventid, accountid, userid, session){
-    let Result = await db.query('select * from schoolevents where eventid = ? and accountid = ? and userid = ? and session = ?',[eventid, accountid, userid, session]);
+exports.getSchoolEventsById = async (eventId, accountId, userId, sessionId) => {
+    let Result = await db.query('select * from schoolEvents where eventId = ? and accountId = ? and userId = ? and sessionId = ?',[eventId, accountId, userId, sessionId]);
     return Result;
 }
 //update school events
-exports.updateSchoolEvent = async function (eventsObjects) {
-    let Result = await db.query('update schoolevents set ? where accountid = ? and userid = ? and eventid = ? and session = ?', [eventsObjects, eventsObjects.accountid, eventsObjects.userid, eventsObjects.eventid, eventsObjects.session]);
+exports.updateSchoolEvent = async (eventsObjects) => {
+    let Result = await db.query('update schoolEvents set ? where accountId = ? and userId = ? and eventId = ? and sessionId = ?', [eventsObjects, eventsObjects.accountId, eventsObjects.userId, eventsObjects.eventId, eventsObjects.sessionId]);
     return Result;
 }
 //get school events
-exports.getSchoolEvents = async function(userid, accountid, session){
-    let Result = await db.query('select * from schoolevents where userid = ? and accountid = ? and session = ?',[userid, accountid, session]);
+exports.getSchoolEvents = async (accountId, sessionId) => {
+    let Result = await db.query('select * from schoolEvents where accountId = ? and sessionId = ?',[accountId, sessionId]);
     return Result;
 }
 //get school events for student
-exports.getSchoolEventsForStudent = async function(accountid){
-    let Result = await db.query('select * from schoolevents where accountid =?',[accountid]);
+exports.getSchoolEventsForStudent = async (accountId) => {
+    let Result = await db.query('select * from schoolEvents where accountId =?',[accountId]);
     return Result;
 }
 //delete school events
-exports.deleteSchoolEvents = async function(userid, accountid, eventid, session){
-    let Result = await db.query('delete from schoolevents where userid = ? and accountid = ? and eventid = ? and session = ?',[userid, accountid, eventid, session]);
+exports.deleteSchoolEvents = async (userId, accountId, eventId, sessionId) => {
+    let Result = await db.query('delete from schoolEvents where userId = ? and accountId = ? and eventId = ? and sessionId = ?',[userId, accountId, eventId, sessionId]);
     return Result;
 }

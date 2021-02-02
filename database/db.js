@@ -1,14 +1,14 @@
-var mysql = require('mysql'),
-     envVariable = require("../config/envValues.js"),
-    Promise = require('bluebird'),
-    using = Promise.using; 
+const mysql = require('mysql');
+const envVariable = require("../config/envValues.js");
+const Promise = require('bluebird');
+const using = Promise.using; 
      
     Promise.promisifyAll(mysql);
     Promise.promisifyAll(require("mysql/lib/Connection").prototype);
     Promise.promisifyAll(require("mysql/lib/Pool").prototype);
 
 
-var state = {
+let state = {
     pool: null,
     mode: null,
 }
@@ -28,7 +28,7 @@ function getTransaction() {
             return connection;
         });
     }).disposer(function (connection, promise) {
-        var result = promise.isFulfilled() ? connection.commitAsync() : connection.rollbackAsync();
+        let result = promise.isFulfilled() ? connection.commitAsync() : connection.rollbackAsync();
         return result.finally(function () {
             connection.release();
         });

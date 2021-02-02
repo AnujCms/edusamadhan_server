@@ -1,8 +1,8 @@
-var db = require('./db.js');
+const db = require('./db.js');
 
 //Assign subject to Teacher
 exports.getAssignSubjectToClass = async function (studentid, accountid) {
-    let result = await db.query('select subjects from subjects where class = (select classid from userdetails where userid = ?) and userid = (select accountAdmin from account where accountid = ?)',[studentid, accountid])
+    let result = await db.query('select subjects from subjects where class = (select classid from userDetails where userid = ?) and userid = (select accountAdmin from account where accountid = ?)',[studentid, accountid])
     return result
 }
 //get Student Result For Teacher

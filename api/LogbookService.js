@@ -89,7 +89,7 @@ router.get("/:studentid/:teacherid/:examtype/:subjectArray/getresultforgraph", i
 //get student attendance for graph
 router.get("/:studentid/:teacherid/studentattendanceforgraph", isProviderOrCoWorkerOrAdminOrSuperAdmin, async function (req, res) {
     let result = await logbookDB.getStudentsAttendances(req.params.teacherid, req.params.studentid,JSON.parse(req.user.configdata).session);
-    var attendanceObj = [];
+    let attendanceObj = [];
     if (result.length > 0) {
         attendanceObj.push(
             ["January", parseInt(result[0].jpd)],

@@ -4,54 +4,93 @@ const UserEnum = require('../lookup/UserEnum');
 const passwordHash = require('password-hash');
 const joiSchema = require('../apiJoi/teacher.js');
 const middleWare = require('../apiJoi/middleWare.js');
+const encrypt = require('../utils/encrypt');
 
+ // "host": "edusamadhan.cnztxxphfuut.ap-south-1.rds.amazonaws.com",
+            // "user": "admin",
+            // "password": "Alopa1994",
+            // "database": "edusamadhan"
 function isTeacherOrExamHead(req, res, next) {
-    if (req.user.role === UserEnum.UserRoles.Teacher || req.user.role === UserEnum.UserRoles.ExamHead ) {
+    if (req.user.role === UserEnum.UserRoles.Teacher || req.user.role === UserEnum.UserRoles.ExamHead) {
+        next();
+    } else {
+        return res.status(403).json({ status: 0, statusDescription: "Not Authenticated user." });
+    }
+}
+function isTeacher(req, res, next) {
+    if (req.user.role === UserEnum.UserRoles.Teacher) {
+        next();
+    } else {
+        return res.status(403).json({ status: 0, statusDescription: "Not Authenticated user." });
+    }
+}
+function isTeacherOrprincipalOrStudent(req, res, next) {
+    if (req.user.role === UserEnum.UserRoles.Teacher || req.user.role === UserEnum.UserRoles.Principal || req.user.role === UserEnum.UserRoles.Student) {
+        next();
+    } else {
+        return res.status(403).json({ status: 0, statusDescription: "Not Authenticated user." });
+    }
+}
+function isTeacherOrStudentOrPrincipal(req, res, next) {
+    if (req.user.role === UserEnum.UserRoles.Teacher || req.user.role === UserEnum.UserRoles.Student || req.user.role === UserEnum.UserRoles.Principal) {
         next();
     } else {
         return res.status(403).json({ status: 0, statusDescription: "Not Authenticated user." });
     }
 }
 function AllUsers(req, res, next) {
-    if (req.user.role === UserEnum.UserRoles.Principal || req.user.role === UserEnum.UserRoles.Teacher || req.user.role === UserEnum.UserRoles.ExamHead || req.user.role === UserEnum.UserRoles.FeeAccount || req.user.role === UserEnum.UserRoles.SuperAdmin || req.user.role === UserEnum.UserRoles.Student ) {
+    if (req.user.role === UserEnum.UserRoles.Principal || req.user.role === UserEnum.UserRoles.Teacher || req.user.role === UserEnum.UserRoles.ExamHead || req.user.role === UserEnum.UserRoles.FeeAccount || req.user.role === UserEnum.UserRoles.SuperAdmin || req.user.role === UserEnum.UserRoles.Manager || req.user.role === UserEnum.UserRoles.Director || req.user.role === UserEnum.UserRoles.Student) {
         next();
     } else {
         return res.status(403).json({ status: 0, statusDescription: "Not Authenticated user." });
     }
 }
-async function isTeacherStudentRelated(req,res,next){
-    let result = await teacherDB.checkTeacherStudentRelation(req.params.studentid, req.user.accountid);
-    if(result){
+async function isTeacherStudentRelated(req, res, next) {
+    let result = await teacherDB.checkTeacherStudentRelation(req.params.studentId, req.user.accountId);
+    if (result) {
         next();
-    }else{ 
+    } else {
         return res.status(200).json({ status: 0, statusDescription: "Student and Teacher are not belongs to same account." });
-    }    
+    }
 }
-async function isTeacherStudentRelatedBody(req,res,next){
-    let result = await teacherDB.checkTeacherStudentRelation(req.body.studentid, req.user.accountid);
-    if(result){
+async function isTeacherStudentRelatedBody(req, res, next) {
+    let result = await teacherDB.checkTeacherStudentRelation(req.body.studentId, req.user.accountid);
+    if (result) {
         next();
-    }else{ 
+    } else {
         return res.status(200).json({ status: 0, statusDescription: "Student and Teacher are not belongs to same account." });
-    }    
+    }
 }
 const studentObject = middleWare(joiSchema.studentObject, "body", true);
-const studentIdParams =  middleWare(joiSchema.studentIdParams, "params", true);
-const adharNumberParams =  middleWare(joiSchema.adharNumberParams, "params", true);
-const emailIdParams =  middleWare(joiSchema.emailIdParams, "params", true);
+const studentIdParams = middleWare(joiSchema.studentIdParams, "params", true);
+const homeWorkIdParams = middleWare(joiSchema.homeWorkIdParams, "params", true);
+const emailIdParams = middleWare(joiSchema.emailIdParams, "params", true);
 const studentCreateResult = middleWare(joiSchema.studentCreateResult, "body", true);
 const studentCreateAttendance = middleWare(joiSchema.studentCreateAttendance, "body", false);
-const studentIdBody =  middleWare(joiSchema.studentIdBody, "body", true);
-const saveAttendanceObject =  middleWare(joiSchema.saveAttendanceObject, "body", true);
-const saveResultObject =  middleWare(joiSchema.saveResultObject, "body", true);
-const getResultObject =  middleWare(joiSchema.getResultObject, "params", true);
+const studentIdBody = middleWare(joiSchema.studentIdBody, "body", true);
+const saveAttendanceObject = middleWare(joiSchema.saveAttendanceObject, "body", true);
+const saveResultObject = middleWare(joiSchema.saveResultObject, "body", true);
+const getResultObject = middleWare(joiSchema.getResultObject, "params", true);
 const attendanceArray = middleWare(joiSchema.attendanceArray, 'body', false);
-const getAttendanceObj = middleWare(joiSchema.getAttendanceObj, "params", false);
+const homeWorkObject = middleWare(joiSchema.homeWorkObject, "body", false);
+const noticeObject = middleWare(joiSchema.noticeObject, "body", false);
+const parentDetailsObj = middleWare(joiSchema.parentDetailsObj, "body", false);
+const studentIdAndId = middleWare(joiSchema.studentIdAndId, "params", true);
+const imageObj = middleWare(joiSchema.imageObj, "body", false);
 
+//get Students for teacher
+router.get("/getTeacherClassAndSection", isTeacherOrExamHead, async (req, res) => {
+    let result = await teacherDB.getTeacherClassSection(req.user.userId, JSON.parse(req.user.configData).sessionId);
+    if (result.length > 0) {
+        res.status(200).json({ status: 1, statusDescription: result[0] });
+    } else {
+        res.status(200).json({ status: 0, statusDescription: 'Not able to get the students.' });
+    }
+});
 //Student Registration
-router.post("/studentRegistration", isTeacherOrExamHead, studentObject, async function (req, res) {
+router.post("/studentRegistration", isTeacherOrExamHead, studentObject, async (req, res) => {
     let img = req.body.images;
-    var image;
+    let image;
     if (img == null) {
         image = img
     } else if (img.length == 0) {
@@ -59,93 +98,111 @@ router.post("/studentRegistration", isTeacherOrExamHead, studentObject, async fu
     } else {
         image = img
     }
-    if(req.body.images !== '' && req.body.images != null){
-        var encryptimg =  image.replace(/^data:image\/[a-z]+;base64,/, "");
+    let encryptimg;
+    if (req.body.images !== '' && req.body.images != null) {
+        encryptimg = image.replace(/^data:image\/[a-z]+;base64,/, "");
     }
     let studentObj = {
-        firstname: encrypt.encrypt(req.body.firstname),
-        lastname: encrypt.encrypt(req.body.lastname),
-        mothername: req.body.mothername,
-        fathername: req.body.fathername,
-        cellnumber: encrypt.encrypt(req.body.cellnumber),
-        username: encrypt.computeHash(req.body.adharnumber),
-        password: encrypt.getHashedPassword(req.body.adharnumber),
+        firstName: encrypt.encrypt(req.body.firstName),
+        lastName: encrypt.encrypt(req.body.lastName),
+        motherName: encrypt.encrypt(req.body.motherName),
+        fatherName: encrypt.encrypt(req.body.fatherName),
+        cellNumber: encrypt.encrypt(req.body.cellNumber),
+        userName: encrypt.computeHash(req.body.aadharNumber),
         dob: encrypt.encrypt(req.body.dob),
-        adharnumber: req.body.adharnumber,
+        aadharNumber: encrypt.encrypt(req.body.aadharNumber),
         gender: req.body.gender,
         religion: req.body.religion,
         category: req.body.category,
         locality: req.body.locality,
         mediumType: req.body.mediumType,
-        localaddress: req.body.localaddress,
-        parmanentaddress: req.body.parmanentaddress,
-        userid: req.user.userid,
+        localAddress: req.body.localAddress,
+        parmanentAddress: req.body.parmanentAddress,
         userrole: UserEnum.UserRoles.Student,
-        status: UserEnum.UserStatus.Active,
         images: encryptimg,
-        session:JSON.parse(req.user.configdata).session,
-        busservice: req.body.busservice,
-        route: req.body.route
+        sessionId: JSON.parse(req.user.configData).sessionId,
+        busService: req.body.busService,
+        route: req.body.route,
+        classId: req.body.classId,
+        sectionId: req.body.sectionId
     }
-    let result = '';
-    if(req.body.studentid){
-        studentObj.studentid = req.body.studentid
-        result = await teacherDB.updateStusentRecord(studentObj);
+    if (req.body.status == 13) {
+        studentObj.status = UserEnum.UserStatus.Active;
+    }
+    let result = 0;
+    if(req.body.studentId){
+        studentObj.userId = req.body.studentId,
+        result = await teacherDB.updateStusentRecord(studentObj, req.user.userId, req.user.accountId, req.body.status, req.user.userType);
     }else{
-        result = await teacherDB.saveStusentDetails(studentObj, req.user.userid, req.user.accountid);
+        studentObj.status = UserEnum.StudentStatus.Pramoted;
+        studentObj.password = encrypt.getHashedPassword(req.body.aadharNumber);
+        studentObj.wrongPasswordCount = 0;
+        result = await teacherDB.createStudentDetails(studentObj, req.user.userId, req.user.accountId, req.user.userType);
     }
     if (result) {
-        res.status(200).json({ status: 1, statusDescription: req.body.studentid?'Student has been updated successfully.':'Student has been created successfully.' });
+        res.status(200).json({ status: 1, statusDescription: 'Student has been updated successfully.' });
     } else {
         res.status(200).json({ status: 0, statusDescription: 'Your principal is not assigned you any class.' });
     }
 });
 // getting student information for update 
-router.get("/updateStudentDetails/:studentid", isTeacherOrExamHead, studentIdParams, isTeacherStudentRelated, async function (req, res) {
-    let result = await teacherDB.getStudentDetails(req.params.studentid, req.user.userid, JSON.parse(req.user.configdata).session);
-        if (result.length > 0) {
-            var resultObj = [];
-            result.forEach(function (row) {
-                resultObj.push({
-                    userid: row.userid,
-                    firstname: encrypt.decrypt(row.firstname),
-                    lastname: encrypt.decrypt(row.lastname),
-                    mothername: row.mothername,
-                    fathername: row.fathername,
-                    cellnumber: encrypt.decrypt(row.cellnumber),
-                    adharnumber: row.adharnumber,
-                    dob: encrypt.decrypt(row.dob),
-                    gender: row.gender,
-                    religion: row.religion,
-                    category: row.category,
-                    locality: row.locality,
-                    locaddress: row.localaddress,
-                    paraddress: row.parmanentaddress,
-                    images: row.images,
-                    busservice: row.busservice,
-                    route: row.route
-                });
-            });
-            res.status(200).json({ status: 1, statusDescription: resultObj });
-        } else {
-            res.status(200).json({ status: 0, statusDescription: 'Not able to get the data.' });
-        }
-    });
-//get Students for teacher
-router.get("/getmystudents", isTeacherOrExamHead, async function (req, res) {
-    let result = await teacherDB.getAllStudents(req.user.userid, UserEnum.UserStatus.Active, JSON.parse(req.user.configdata).session);
+router.get("/getStudentDetailsForUpdate/:studentId", isTeacherOrExamHead, studentIdParams, isTeacherStudentRelated, async (req, res) => {
+    let result = await teacherDB.getStudentDetails(req.params.studentId, JSON.parse(req.user.configData).sessionId);
     if (result.length > 0) {
-        var resultObj = [];
+        let studentObj = [];
+        result.forEach(function (row) {
+            studentObj.push({
+                userId: row.userId,
+                firstName: encrypt.decrypt(row.firstName),
+                lastName: encrypt.decrypt(row.lastName),
+                motherName: encrypt.decrypt(row.motherName),
+                fatherName: encrypt.decrypt(row.fatherName),
+                cellNumber: encrypt.decrypt(row.cellNumber),
+                aadharNumber: encrypt.decrypt(row.aadharNumber),
+                dob: encrypt.decrypt(row.dob),
+                gender: row.gender,
+                religion: row.religion,
+                category: row.category,
+                locality: row.locality,
+                localAddress: row.localAddress,
+                parmanentAddress: row.parmanentAddress,
+                images: row.images,
+                busService: row.busService,
+                route: row.route,
+                classId: row.classId,
+                sectionId: row.sectionId,
+                status: row.status,
+                mediumType: row.mediumType
+            });
+        });
+        res.status(200).json({ status: 1, statusDescription: studentObj });
+    } else {
+        res.status(200).json({ status: 0, statusDescription: 'Not able to get the data.' });
+    }
+});
+//get Students for teacher
+router.get("/getmystudents", isTeacherOrExamHead, async (req, res) => {
+    let getStudentObj = {
+        teacherId: req.user.userId,
+        accountId: req.user.accountId,
+        userType: req.user.userType,
+        sessionId: JSON.parse(req.user.configData).sessionId,
+        status: [UserEnum.StudentStatus.Pramoted, UserEnum.StudentStatus.Active, UserEnum.UserStatus.Locked, UserEnum.UserStatus.Inactive, UserEnum.UserStatus.UnLocked],
+    }
+    let result = await teacherDB.getAllStudents(getStudentObj);
+    if (result.length > 0) {
+        let resultObj = [];
         result.forEach(function (row) {
             resultObj.push({
-                userid: row.userid,
-                firstname: encrypt.decrypt(row.firstname),
-                lastname: encrypt.decrypt(row.lastname),
-                mothername: row.mothername,
-                fathername: row.fathername,
-                cellnumber: encrypt.decrypt(row.cellnumber),
+                userId: row.userId,
+                firstName: encrypt.decrypt(row.firstName),
+                lastName: encrypt.decrypt(row.lastName),
+                motherName: encrypt.decrypt(row.motherName),
+                fatherName: encrypt.decrypt(row.fatherName),
+                cellNumber: encrypt.decrypt(row.cellNumber),
+                aadharNumber: encrypt.decrypt(row.aadharNumber),
+                userrole: row.userrole,
                 roll: row.rollnumber,
-                adharnumber: row.adharnumber,
                 dob: encrypt.decrypt(row.dob),
                 gender: row.gender,
                 religion: row.religion,
@@ -153,10 +210,10 @@ router.get("/getmystudents", isTeacherOrExamHead, async function (req, res) {
                 locality: row.locality,
                 mediumType: row.mediumType,
                 status: row.status,
-                images:row.images,
-                classid: row.classid,
-                section: row.section,
-                busservice: row.busservice
+                images: row.images,
+                classId: row.classId,
+                sectionId: row.sectionId,
+                busService: row.busService
             });
         });
         res.status(200).json({ status: 1, statusDescription: resultObj });
@@ -165,69 +222,48 @@ router.get("/getmystudents", isTeacherOrExamHead, async function (req, res) {
     }
 });
 
-//get Inactivated Students for teacher
-router.get("/getmyinactivatedstudents", isTeacherOrExamHead, async function (req, res) {
-    let result = await teacherDB.getAllInactivatedStudents(req.user.userid, UserEnum.UserStatus.Inactive, JSON.parse(req.user.configdata).session);
+//check assigned class and section
+router.get("/getAssignedClassAndSection", async (req, res) => {
+    let result = await teacherDB.getAssignedClassAndSection(req.user.userId);
     if (result.length > 0) {
-        var resultObj = [];
-        result.forEach(function (row) {
-            resultObj.push({
-                userid: row.userid,
-                firstname: encrypt.decrypt(row.firstname),
-                lastname: encrypt.decrypt(row.lastname),
-                mothername: row.mothername,
-                fathername: row.fathername,
-                cellnumber: encrypt.decrypt(row.cellnumber),
-                roll: row.rollnumber,
-                adharnumber: row.adharnumber,
-                dob: encrypt.decrypt(row.dob),
-                gender: row.gender,
-                religion: row.religion,
-                category: row.category,
-                locality: row.locality,
-                status: row.status,
-                images:row.images
-            });
-        });
-        res.status(200).json({ status: 1, statusDescription: resultObj });
+        res.status(200).json({ status: 1, statusDescription: result });
     } else {
-        res.status(200).json({ status: 0, statusDescription: 'No Inactivate Student fount of this class.' });
+        res.status(200).json({ status: 0, statusDescription: "Class not assigned" });
     }
-});
-
+})
 //check adharnumber
-router.get("/getAdharnumber/:adharnumber", async function(req, res){
-let result = await teacherDB.checkAddhar(req.params.adharnumber);
-if(result){
-    res.status(200).json({ "isAdharNumberUsed": true });
-}else{
-    res.status(200).json({ "isAdharNumberUsed": false });
-}
+router.get("/getAadharNumber/:aadharNumber", async (req, res) => {
+    let result = await teacherDB.checkAadharNumber(encrypt.encrypt(req.params.aadharNumber));
+    if (result) {
+        res.status(200).json({ "isAdharNumberUsed": true });
+    } else {
+        res.status(200).json({ "isAdharNumberUsed": false });
+    }
 })
 
 //check emailid 
-router.get("/getEmailId/:emailid", async function(req, res){
-    let result = await teacherDB.checkEmailId(encrypt.encrypt(req.params.emailid));
-    if(result){
+router.get("/getEmailId/:emailId", async (req, res) => {
+    let result = await teacherDB.checkEmailId(encrypt.encrypt(req.params.emailId));
+    if (result) {
         res.status(200).json({ "isEmailIdUsed": true });
-    }else{
+    } else {
         res.status(200).json({ "isEmailIdUsed": false });
     }
 })
 
 //get config details(Delete)
-router.get("/:teacherid/getconfigdetails", async function (req, res) {
-       let result = await teacherDB.getconfigdetailsByAllUsers(req.params.teacherid);
+router.get("/:teacherId/getconfigdetails", async (req, res) => {
+    let result = await teacherDB.getconfigdetailsByAllUsers(req.params.teacherId);
     if (result.length > 0) {
-        let configData = JSON.parse(result[0].configdata);
+        let configData = JSON.parse(result[0].configData);
         res.status(200).json({ status: 1, statusDescription: configData });
     } else {
         res.status(200).json({ status: 0, statusDescription: 'There is no config.' });
     }
 })
 //get assign subjects
-router.get("/assignsubjects", isTeacherOrExamHead, async function (req, res) {
-    let result = await teacherDB.getAssignSubjectToClass(req.user.userid, req.user.accountid);
+router.get("/assignsubjects", isTeacherOrExamHead, async (req, res) => {
+    let result = await teacherDB.getAssignSubjectToClass(req.user.userId, req.user.accountId);
     if (result.length > 0) {
         res.status(200).json({ status: 1, statusDescription: JSON.parse(result[0].subjects) });
     } else {
@@ -235,40 +271,40 @@ router.get("/assignsubjects", isTeacherOrExamHead, async function (req, res) {
     }
 })
 //Save Student Result
-router.post("/studentResult", isTeacherOrExamHead, isTeacherStudentRelatedBody, studentCreateResult, async function (req, res) {
-    var result;
-    switch (req.body.subjectid) {
-        case 1: result = { hindi: JSON.stringify([{totalMarks:req.body.totalMarks, obtainMarks:req.body.obtainMarks }])}
+router.post("/studentResult", isTeacherOrExamHead, isTeacherStudentRelatedBody, studentCreateResult, async (req, res) => {
+    let result;
+    switch (req.body.subjectId) {
+        case 1: result = { hindi: JSON.stringify([{ totalMarks: req.body.totalMarks, obtainMarks: req.body.obtainMarks }]) }
             break;
-        case 2: result = { english: JSON.stringify([{totalMarks:req.body.totalMarks, obtainMarks: req.body.obtainMarks }])};
+        case 2: result = { english: JSON.stringify([{ totalMarks: req.body.totalMarks, obtainMarks: req.body.obtainMarks }]) };
             break;
-        case 3: result = { mathematics: JSON.stringify([{totalMarks:req.body.totalMarks, obtainMarks: req.body.obtainMarks }])};
+        case 3: result = { mathematics: JSON.stringify([{ totalMarks: req.body.totalMarks, obtainMarks: req.body.obtainMarks }]) };
             break;
-        case 4: result = { science:JSON.stringify([{totalMarks: req.body.totalMarks, obtainMarks: req.body.obtainMarks }])};
+        case 4: result = { science: JSON.stringify([{ totalMarks: req.body.totalMarks, obtainMarks: req.body.obtainMarks }]) };
             break;
-        case 5: result = { socialscience:JSON.stringify([{totalMarks: req.body.totalMarks, obtainMarks: req.body.obtainMarks}]) };
+        case 5: result = { socialscience: JSON.stringify([{ totalMarks: req.body.totalMarks, obtainMarks: req.body.obtainMarks }]) };
             break;
-        case 6: result = { geography:JSON.stringify([{totalMarks: req.body.totalMarks, obtainMarks: req.body.obtainMarks}]) };
+        case 6: result = { geography: JSON.stringify([{ totalMarks: req.body.totalMarks, obtainMarks: req.body.obtainMarks }]) };
             break;
-        case 7: result = { physics:JSON.stringify([{totalMarks: req.body.totalMarks, obtainMarks: req.body.obtainMarks}]) };
+        case 7: result = { physics: JSON.stringify([{ totalMarks: req.body.totalMarks, obtainMarks: req.body.obtainMarks }]) };
             break;
-        case 8: result = { chemistry:JSON.stringify([{totalMarks: req.body.totalMarks, obtainMarks: req.body.obtainMarks}]) };
+        case 8: result = { chemistry: JSON.stringify([{ totalMarks: req.body.totalMarks, obtainMarks: req.body.obtainMarks }]) };
             break;
-        case 9: result = { biology:JSON.stringify([{totalMarks: req.body.totalMarks, obtainMarks: req.body.obtainMarks}]) };
+        case 9: result = { biology: JSON.stringify([{ totalMarks: req.body.totalMarks, obtainMarks: req.body.obtainMarks }]) };
             break;
-        case 10: result = { moralscience:JSON.stringify([{totalMarks: req.body.totalMarks, obtainMarks: req.body.obtainMarks}]) };
+        case 10: result = { moralscience: JSON.stringify([{ totalMarks: req.body.totalMarks, obtainMarks: req.body.obtainMarks }]) };
             break;
-        case 11: result = { drawing:JSON.stringify([{totalMarks: req.body.totalMarks, obtainMarks: req.body.obtainMarks }])};
+        case 11: result = { drawing: JSON.stringify([{ totalMarks: req.body.totalMarks, obtainMarks: req.body.obtainMarks }]) };
             break;
-        case 12: result = { computer:JSON.stringify([{totalMarks: req.body.totalMarks, obtainMarks: req.body.obtainMarks }])};
+        case 12: result = { computer: JSON.stringify([{ totalMarks: req.body.totalMarks, obtainMarks: req.body.obtainMarks }]) };
             break;
         default:
             break;
     }
-    result.teacherid = req.user.userid,
-    result.studentid = req.body.studentid
+    result.teacherId = req.user.userId,
+        result.studentId = req.body.studentId
     result.examinationtype = req.body.examinationtype
-let results = await teacherDB.saveStusentResult(result, JSON.parse(req.user.configdata).session);
+    let results = await teacherDB.saveStusentResult(resultId, JSON.parse(req.user.configData).sessionId);
     if (results) {
         res.status(200).json({ status: 1, statusDescription: "Student result has been saved successfully." });
     } else {
@@ -276,8 +312,8 @@ let results = await teacherDB.saveStusentResult(result, JSON.parse(req.user.conf
     }
 });
 //Save Student Attendance by class teacher
-router.post("/studentAttendance", isTeacherOrExamHead, isTeacherStudentRelatedBody, studentCreateAttendance, async function (req, res) {
-    var result;
+router.post("/studentAttendance", isTeacherOrExamHead, isTeacherStudentRelatedBody, studentCreateAttendance, async (req, res) => {
+    let result;
     switch (req.body.monthName) {
         case 1: result = { january: req.body.monthName, jtd: req.body.totalClasses, jpd: req.body.presentClasses };
             break;
@@ -306,61 +342,24 @@ router.post("/studentAttendance", isTeacherOrExamHead, isTeacherStudentRelatedBo
         default:
             break;
     }
-    result.teacherid = req.user.userid,
-        result.studentid = req.body.studentid
-    let attendance = await teacherDB.saveStusentAttendance(result, JSON.parse(req.user.configdata).session);
+    result.teacherId = req.user.userId,
+        result.studentId = req.body.studentId
+    let attendance = await teacherDB.saveStusentAttendance(resultId, JSON.parse(req.user.configData).sessionId);
     if (attendance) {
         res.status(200).json({ status: 1, statusDescription: "Student attendance has been submitted successfully." });
     } else {
         res.status(200).json({ status: 0, statusDescription: "Not able to save student attendance" });
     }
 });
-//get Student fee details for Teacher
-router.get("/getfeedetailsforteacher", async function (req, res) {
-    let result = await teacherDB.getFeeDetailsForTeacher(req.user.userid, JSON.parse(req.user.configdata).session, req.user.accountid);
-    if (result) {
-        var studentObj = [];
-        var a = result.feeStructure[0];
-        setRoute = (value) =>{
-            let fee
-            result.transport.map((item)=>{
-                if(value == item.transportfeeid){
-                    fee = item.fee
-                }
-            })
-            return fee;
-        }
 
-        var feeSum = parseInt(a.january) + a.february + a.march + a.april + a.may + a.june + a.july + a.august + a.september + a.october + a.november + a.december;
-        result.student.map((item)=>{
-            studentObj.push({
-                name: encrypt.decrypt(item.firstname) + " " + encrypt.decrypt(item.lastname),
-                totalFee: feeSum,
-                busservice: item.busservice,
-                images: item.images,
-                studentid: item.studentid,
-                adharnumber: item.adharnumber,
-                transportFee: item.busservice == 2?setRoute(item.route):0
-            })
-        })
-        let dataToSend = {
-            studentData: studentObj,
-            studenttransportfee: result.studenttransportfee,
-            submittedfee:result.submittedfee
-        }
-        res.status(200).json({ status: 1, statusDescription: dataToSend });
-    } else {
-        res.status(200).json({ status: 0, statusDescription: "Not able to get the fee details." });
-    }
-})
 //get Student Result All
-router.get("/getstudentsresult", isTeacherOrExamHead, async function (req, res) {
-    let result = await teacherDB.getStudentsResult(req.user.userid);
+router.get("/getstudentsresult", isTeacherOrExamHead, async (req, res) => {
+    let result = await teacherDB.getStudentsResult(req.user.userId);
     if (result.length > 0) {
-        var resultObj = []
-        result.forEach(function (row) {
+        let resultObj = []
+        result.forEach((row) => {
             resultObj.push({
-                studentid: row.studentid,
+                studentId: row.studentId,
                 hindi: row.hindi,
                 hindiobtainmarks: row.hindiobtainmarks,
                 english: row.english,
@@ -383,13 +382,13 @@ router.get("/getstudentsresult", isTeacherOrExamHead, async function (req, res) 
     }
 })
 //get Attendance of all students
-router.get("/getstudentsattendance", isTeacherOrExamHead, async function (req, res) {
-    let results = await teacherDB.getAllStudentsAttendance(req.user.userid);
+router.get("/getstudentsattendance", isTeacherOrExamHead, async (req, res) => {
+    let results = await teacherDB.getAllStudentsAttendance(req.user.userId);
     if (results.length > 0) {
-        var resultObj = [];
-        results.forEach(function (result) {
+        let resultObj = [];
+        results.forEach((result) => {
             resultObj.push({
-                studentid: result.studentid,
+                studentId: result.studentId,
                 january: result.january,
                 jtd: result.jtd,
                 jpd: result.jpd,
@@ -435,19 +434,20 @@ router.get("/getstudentsattendance", isTeacherOrExamHead, async function (req, r
 })
 //get teacher Details
 router.get("/getTeacherDetails", AllUsers, async (req, res) => {
-    let result = await teacherDB.getTeacherDetails(req.user.userid);
+    let result = await teacherDB.getTeacherDetails(req.user.userId);
     if (result.length > 0) {
-        var resultObj = {
-            firstname: result[0].firstname,
-            lastname: result[0].lastname,
-            cellnumber: encrypt.decrypt(result[0].cellnumber),
-            emailid: encrypt.decrypt(result[0].emailid),
+        let resultObj = {
+            firstName: encrypt.decrypt(result[0].firstName),
+            lastName: encrypt.decrypt(result[0].lastName),
+            cellNumber: encrypt.decrypt(result[0].cellNumber),
+            aadharNumber: encrypt.decrypt(result[0].aadharNumber),
+            emailId: encrypt.decrypt(result[0].emailId),
             dob: result[0].dob,
-            parmanentaddress: result[0].parmanentaddress,
-            localaddress: result[0].localaddress,
+            parmanentAddress: result[0].parmanentAddress,
+            localAddress: result[0].localAddress,
             qualification: result[0].qualification,
-            class: result[0].classid,
-            section: result[0].section,
+            classId: result[0].classId,
+            sectionId: result[0].sectionId,
             image: result[0].images
         };
         res.status(200).json({ status: 1, statusDescription: resultObj })
@@ -456,16 +456,8 @@ router.get("/getTeacherDetails", AllUsers, async (req, res) => {
     }
 })
 //Update teacher profile
-router.post("/updateProfileDetails", AllUsers, async (req, res) => {
-    let changePassword = req.body.changePassword,
-        oldPassword = req.body.oldPassword,
-        newPassword = req.body.newPassword;
+router.post("/updateProfileDetails", AllUsers, imageObj, async (req, res) => {
     let img = req.body.image;
-    if (newPassword != undefined || newPassword != null) {
-        var hashedpassword = passwordHash.generate(newPassword);
-    }
-    var image;
-
     if (img == null) {
         image = img
     } else if (img.length == 0) {
@@ -473,61 +465,21 @@ router.post("/updateProfileDetails", AllUsers, async (req, res) => {
     } else {
         image = img
     }
-    if (image == null) {
-        let result = await teacherDB.updateOnboardDetails(image, req.user.userid)
-        if (result.affectedRows == 1) {
-            if (changePassword) {
-                let result = await teacherDB.checkpassword(req.user.userid);
-                if (!passwordHash.verify(oldPassword, result.password)) {
-                    res.status(200).json({ status: 2, statusDescription: 'current password did not match' })
-                } else {
-                    let changepassword = await teacherDB.changePassword(hashedpassword, req.user.userid)
-                    if (changepassword.affectedRows == 1) {
-                        res.status(200).json({ status: 1, statusDescription: "Password updated successfully." })
-                    } else {
-                        return res.status(200).json({ status: 0, statusDescription: "Unable to update the password." });
-                    }
-                }
-            }
-            else {
-                res.status(200).json({ status: 1, statusDescription: "successfully saved the record." })
-            }
-
-            if (firstname == checkemail[0].firstname && lastname == checkemail[0].lastname) {
-                return
-            }
-        } else {
-            return res.status(200).json({ status: 0, statusDescription: "Not able to update record." });
-        }
-    } else {
+    if (req.body.image !== '' && req.body.image != null) {
         let encryptimg = img.replace(/^data:image\/[a-z]+;base64,/, "");
-        let result = await teacherDB.updateOnboardDetails(encryptimg, req.user.userid)
-
+        let result = await teacherDB.updateOnboardDetails(encryptimg, req.user.userId)
         if (result.affectedRows == 1) {
-            if (changePassword) {
-                let result = await teacherDB.checkpassword(req.user.userid);
-                if (!passwordHash.verify(oldPassword, result.password)) {
-                    res.status(200).json({ status: 2, statusDescription: 'current password did not match' })
-                } else {
-                    let changepassword = await teacherDB.changePassword(hashedpassword, req.user.userid)
-                    if (changepassword.affectedRows == 1) {
-                        res.status(200).json({ status: 1, statusDescription: "Password has been successfully saved." })
-                    } else {
-                        return res.status(200).json({ status: 0, statusDescription: "Not able to save the password." });
-                    }
-                }
-            }
-            else {
-                res.status(200).json({ status: 1, statusDescription: "Record has been saved." })
-            }
+            return res.status(200).json({ status: 1, statusDescription: "Profile image has been updated successfully." });
         } else {
             return res.status(200).json({ status: 0, statusDescription: "Not able to save the record." });
         }
+    }else {
+        return res.status(200).json({ status: 0, statusDescription: "Not able to save the record." });
     }
 })
 //Inactivate student by class teacher
-router.post('/inactivatestudent', isTeacherOrExamHead, studentIdBody, isTeacherStudentRelatedBody, async function (req, res) {
-    let result = await teacherDB.inactivateStudent(req.body.studentid, UserEnum.UserStatus.Inactive, UserEnum.UserRoles.Student);
+router.post('/inactivatestudent', isTeacherOrExamHead, studentIdBody, isTeacherStudentRelatedBody, async (req, res) => {
+    let result = await teacherDB.inactivateStudent(req.body.studentId, UserEnum.UserStatus.Inactive, UserEnum.UserRoles.Student);
     if (result == 1) {
         res.status(200).json({ status: 1, statusDescription: "Student has been inactivated successfully." });
     } else {
@@ -535,55 +487,85 @@ router.post('/inactivatestudent', isTeacherOrExamHead, studentIdBody, isTeacherS
     }
 });
 //Inactivate student by class teacher
-router.post('/reactivatestudent', isTeacherOrExamHead, studentIdBody, isTeacherStudentRelatedBody, async function (req, res) {
-    let result = await teacherDB.reactivateStudent(req.body.studentid, UserEnum.StudentStatusEnum.active, UserEnum.UserRoles.Student);
+router.post('/reactivatestudent', isTeacherOrExamHead, studentIdBody, isTeacherStudentRelatedBody, async (req, res) => {
+    let result = await teacherDB.reactivateStudent(req.body.studentId, UserEnum.StudentStatusEnum.active, UserEnum.UserRoles.Student);
     if (result == 1) {
         res.status(200).json({ status: 1, statusDescription: "Student has been activated successfully." });
     } else {
         res.status(200).json({ status: 0, statusDescription: "Student is not Reactivated." });
     }
 });
-
+//get Inactivated Students for teacher
+router.get("/getmyinactivatedstudents", isTeacherOrExamHead, async (req, res) => {
+    let result = await teacherDB.getAllInactivatedStudents(req.user.userId, UserEnum.UserStatus.Locked, JSON.parse(req.user.configData).sessionId);
+    if (result.length > 0) {
+        let resultObj = [];
+        result.forEach((row) => {
+            resultObj.push({
+                userId: row.userId,
+                firstName: encrypt.decrypt(row.firstName),
+                lastName: encrypt.decrypt(row.lastName),
+                motherName: encrypt.decrypt(row.motherName),
+                fatherName: encrypt.decrypt(row.fatherName),
+                cellNumber: encrypt.decrypt(row.cellNumber),
+                roll: row.rollnumber,
+                aadharNumber: encrypt.decrypt(row.aadharNumber),
+                dob: encrypt.decrypt(row.dob),
+                gender: row.gender,
+                religion: row.religion,
+                category: row.category,
+                locality: row.locality,
+                status: row.status,
+                mediumType: row.mediumType,
+                busService: row.busService,
+                images: row.images
+            });
+        });
+        res.status(200).json({ status: 1, statusDescription: resultObj });
+    } else {
+        res.status(200).json({ status: 0, statusDescription: 'No Inactivate Student fount of this class.' });
+    }
+});
 //get student Registration print details
-router.get("/getstudentregistrationdetails/:adharnumber", isTeacherOrExamHead, adharNumberParams, async function (req, res) {
-let result = await teacherDB.getStudentRegistrationDetails(req.params.adharnumber, JSON.parse(req.user.configdata).session, req.user.accountid);
-    if(result.studentData.length>0){
+router.get("/getstudentregistrationdetails/:studentId", isTeacherOrExamHead, studentIdBody, async (req, res) => {
+    let result = await teacherDB.getStudentRegistrationDetails(req.params.studentId, JSON.parse(req.user.configData).sessionId, req.user.accountId);
+    if (result.studentData.length > 0) {
         let freePrintData = {
-            schoolName:result.school[0].accountname,
-            schoolNumber:result.school[0].accountrefnumber,
-            schoolAddress: result.school[0].accountaddress,
-            studentName: encrypt.decrypt(result.studentData[0].firstname) +" " +encrypt.decrypt(result.studentData[0].lastname),
-            adharNumber: result.studentData[0].adharnumber,
-            cellNumber:encrypt.decrypt(result.studentData[0].cellnumber),
-            dob:encrypt.decrypt(result.studentData[0].dob),
-            motherName: result.studentData[0].mothername,
-            fatherName: result.studentData[0].fathername,
-            class: result.studentData[0].classid,
-            section: result.studentData[0].section,
+            schoolName: result.school[0].accountName,
+            schoolNumber: result.school[0].accountRefNumber,
+            schoolAddress: result.school[0].accountAddress,
+            studentName: encrypt.decrypt(result.studentData[0].firstName) + " " + encrypt.decrypt(result.studentData[0].lastName),
+            aadharNumber: encrypt.decrypt(result.studentData[0].aadharNumber),
+            cellNumber: encrypt.decrypt(result.studentData[0].cellnNmber),
+            dob: encrypt.decrypt(result.studentData[0].dob),
+            motherName: encrypt.decrypt(result.studentData[0].motherName),
+            fatherName: encrypt.decrypt(result.studentData[0].fatherName),
+            classId: result.studentData[0].classId,
+            sectionId: result.studentData[0].sectionId,
             gender: result.studentData[0].gender,
             religion: result.studentData[0].religion,
             category: result.studentData[0].category,
             locality: result.studentData[0].locality,
-            localAddress: result.studentData[0].localaddress,
-            parmanentAddress: result.studentData[0].parmanentaddress
+            localAddress: result.studentData[0].localAddress,
+            parmanentAddress: result.studentData[0].parmanentAddress
         }
-    res.status(200).json({ status: 1, statusDescription: freePrintData});
+        res.status(200).json({ status: 1, statusDescription: freePrintData });
     } else {
         res.status(200).json({ status: 0, statusDescription: "Not able to get the data." });
     }
 })
 
 //save attendance student by class teacher
-router.post('/savedailyattendance',isTeacherOrExamHead, saveAttendanceObject, async function (req, res) {
+router.post('/savedailyattendance', isTeacherOrExamHead, saveAttendanceObject, async (req, res) => {
     let attendanceObj = [];
-    for(let i=0;i<req.body.length;i++){
+    for (let i = 0; i < req.body.length; i++) {
         attendanceObj.push({
-            accountid: req.user.accountid,
-            teacherid: req.user.userid,
-            studentid: req.body[i].studentId,
-            classid: req.body[i].classid,
-            section: req.body[i].section,
-            session: JSON.parse(req.user.configdata).session,
+            accountId: req.user.accountId,
+            teacherId: req.user.userId,
+            studentId: req.body[i].studentId,
+            classId: req.body[i].classId,
+            sectionId: req.body[i].sectionId,
+            sessionId: JSON.parse(req.user.configData).sessionId,
         })
     }
     let result = await teacherDB.saveDailyAttendance(attendanceObj);
@@ -595,8 +577,8 @@ router.post('/savedailyattendance',isTeacherOrExamHead, saveAttendanceObject, as
 });
 
 //get student attendance
-router.get('/getdailyattendance', async function (req, res) {
-    let result = await teacherDB.getDailyAttendance(req.user.accountid, req.user.userid, JSON.parse(req.user.configdata).session );
+router.get('/getdailyattendance', async (req, res) => {
+    let result = await teacherDB.getDailyAttendance(req.user.accountId, req.user.userId, JSON.parse(req.user.configData).sessionId);
     if (result) {
         res.status(200).json({ status: 1, statusDescription: result });
     } else {
@@ -605,12 +587,12 @@ router.get('/getdailyattendance', async function (req, res) {
 });
 
 //save exam result of student
-router.post('/savestudentresult',isTeacherOrExamHead, saveResultObject, async function (req, res) {
+router.post('/savestudentresult', isTeacherOrExamHead, saveResultObject, async (req, res) => {
     let resultObject = {
-        studentid: req.body.studentid,
-        teacherid: req.user.userid,
-        examinationtype: req.body.examinationType,
-        session: JSON.parse(req.user.configdata).session,
+        studentId: req.body.studentId,
+        teacherId: req.user.userId,
+        examinationType: req.body.examinationType,
+        sessionId: JSON.parse(req.user.configData).sessionId,
         subjectResultArray: JSON.stringify(req.body.subjectResultArray)
     }
 
@@ -623,16 +605,16 @@ router.post('/savestudentresult',isTeacherOrExamHead, saveResultObject, async fu
 });
 
 //get exam result of student
-router.get('/getstudentresult/:studentid/:examinationType',isTeacherOrExamHead, getResultObject,  async function (req, res) {
+router.get('/getstudentresult/:studentId/:examinationType', isTeacherOrExamHead, getResultObject, async (req, res) => {
     let resultObject = {
-        studentid: req.params.studentid,
-        teacherid: req.user.userid,
-        examinationtype: req.params.examinationType,
-        session: JSON.parse(req.user.configdata).session
+        studentId: req.params.studentId,
+        teacherId: req.user.userId,
+        examinationType: req.params.examinationType,
+        sessionId: JSON.parse(req.user.configData).sessionId
     }
 
     let result = await teacherDB.getStudentResult(resultObject);
-    if (result.length>0) {
+    if (result.length > 0) {
         res.status(200).json({ status: 1, statusDescription: result });
     } else {
         res.status(200).json({ status: 0, statusDescription: "Not able to get the result." });
@@ -640,17 +622,18 @@ router.get('/getstudentresult/:studentid/:examinationType',isTeacherOrExamHead, 
 });
 
 //save exam result of student
-router.post('/savestudentAttendance',isTeacherOrExamHead, attendanceArray, async function (req, res) {
-   let attendanceArray = []
-   req.body.attendanceArray.map((item)=>{
-       let array =[]
-       array.push(item.studentId)
-       array.push(req.user.userid)
-       array.push(JSON.parse(req.user.configdata).session)
-       array.push(item.attendanceDate)
-       array.push(item.attendance)
-       attendanceArray.push(array)
-   })
+router.post('/savestudentAttendance', isTeacher, attendanceArray, async (req, res) => {
+    let attendanceArray = []
+    req.body.attendanceArray.map((item) => {
+        let array = []
+        array.push(item.studentId)
+        array.push(req.user.userId)
+        array.push(JSON.parse(req.user.configData).sessionId)
+        array.push(item.attendanceDate)
+        array.push(item.attendance)
+        array.push(item.reason)
+        attendanceArray.push(array)
+    })
     let result = await teacherDB.saveStudentAttendance(attendanceArray);
     if (result) {
         res.status(200).json({ status: 1, statusDescription: "Attendance has been saved successfully." });
@@ -660,33 +643,396 @@ router.post('/savestudentAttendance',isTeacherOrExamHead, attendanceArray, async
 });
 
 //get class attendance by date
-router.get('/getClassAttendanceOfDate/:attendanceDate',isTeacherOrExamHead,  async function (req, res) {
+router.get('/getClassAttendanceOfDate/:attendanceDate', isTeacher, async (req, res) => {
     let attendanceObj = {
-        teacherId: req.user.userid,
+        accountId: req.user.accountId,
+        teacherId: req.user.userId,
+        userType: req.user.userType,
         attendanceDate: req.params.attendanceDate,
-        session: JSON.parse(req.user.configdata).session
+        sessionId: JSON.parse(req.user.configData).sessionId
     }
     let result = await teacherDB.getClassAttendanceOfDate(attendanceObj);
-    if (result.length>0) {
+    if (result.length > 0) {
         res.status(200).json({ status: 1, statusDescription: result });
     } else {
         res.status(200).json({ status: 0, statusDescription: "Not able to get the result." });
     }
 });
 
-//get class attendance of time period
-router.get('/getClassAttendanceOfSelecteddates/:startDate/:endDate',isTeacherOrExamHead, getAttendanceObj, async function (req, res) {
+//get class attendance of time period   
+router.get('/getClassAttendanceOfSelecteddates/:startDate/:endDate', isTeacher, async (req, res) => {
     let attendanceObj = {
-        teacherId: req.user.userid,
+        accountId: req.user.accountId,
+        teacherId: req.user.userId,
+        userType: req.user.userType,
         startDate: req.params.startDate,
         endDate: req.params.endDate,
-        session: JSON.parse(req.user.configdata).session
+        sessionId: JSON.parse(req.user.configData).sessionId
     }
     let result = await teacherDB.getClassAttendanceOfSelecteddates(attendanceObj);
-    if (result.length>0) {
+    if (result.length > 0) {
         res.status(200).json({ status: 1, statusDescription: result });
     } else {
         res.status(200).json({ status: 0, statusDescription: "Not able to get the attendance." });
+    }
+});
+
+//get student profile details
+router.get('/getstudentprofile/:studentId', isTeacherOrStudentOrPrincipal, studentIdParams, async (req, res) => {
+    let result = await teacherDB.getStudentprofileDetails(req.params.studentId, JSON.parse(req.user.configData).sessionId);
+    if (result.length > 0) {
+        let studentObj = {
+            studentId: result[0].userId,
+            studentName: encrypt.decrypt(result[0].firstName + " " + encrypt.decrypt(result[0].lastName)),
+            aadharNumber: encrypt.decrypt(result[0].aadharNumber),
+            cellNumber: encrypt.decrypt(result[0].cellNumber),
+            motherName: encrypt.decrypt(result[0].motherName),
+            fatherName: encrypt.decrypt(result[0].fatherName),
+            dob: encrypt.decrypt(result[0].dob),
+            gender: result[0].gender,
+            category: result[0].category,
+            religion: result[0].religion,
+            locality: result[0].locality,
+            classId: result[0].classId,
+            sessionId: result[0].sectionId,
+            busService: result[0].busService,
+            route: result[0].route,
+            studentImage: result[0].images
+        }
+        res.status(200).json({ status: 1, statusDescription: studentObj });
+    } else {
+        res.status(200).json({ status: 0, statusDescription: "Not able to get the student." });
+    }
+});
+//get student profile details
+router.get('/getstudentallresult/:studentId', isTeacherOrStudentOrPrincipal, studentIdParams, async (req, res) => {
+    let result = await teacherDB.getStudentResultDetails(req.params.studentId, JSON.parse(req.user.configData).sessionId, JSON.parse(req.user.configData).examOption);
+    if (result.length > 0) {
+        res.status(200).json({ status: 1, statusDescription: result });
+    } else {
+        res.status(200).json({ status: 0, statusDescription: "Not able to get the student." });
+    }
+});
+
+//************************** */
+//Create class Home Work
+router.post("/createClassHomeWork", isTeacher, homeWorkObject, async (req, res) => {
+    let homeWorkObj = {
+        accountId: req.user.accountId,
+        userId: req.user.userId,
+        sessionId: JSON.parse(req.user.configData).sessionId,
+        classId: req.body.classId,
+        sectionId: req.body.sectionId,
+        subjectId: req.body.subjectId,
+        mediumType: req.body.mediumType,
+        homeWorkDate: req.body.homeWorkDate,
+        homeWorkDetails: req.body.homeWorkDetails
+    }
+    let result;
+    let createdUpdate = 'created';
+    if (req.body.homeWorkId) {
+        createdUpdate = 'updated';
+        homeWorkObj.homeWorkId = req.body.homeWorkId;
+        result = await teacherDB.updateHomeWorkDetails(homeWorkObj);
+    } else {
+        result = await teacherDB.createHomeWork(homeWorkObj);
+    }
+    if (result) {
+        res.status(200).json({ status: 1, statusDescription: `Home Work has been ${createdUpdate} successfully.` });
+    } else {
+        res.status(200).json({ status: 0, statusDescription: 'Your principal is not assigned you any class.' });
+    }
+});
+// get homework data for update 
+router.get("/getHomeWorktDetailsForUpdate/:homeWorkId", isTeacher, homeWorkIdParams, async (req, res) => {
+    let getHomeWorkObj = {
+        homeWorkId: req.params.homeWorkId,
+        sessionId: JSON.parse(req.user.configData).sessionId,
+        accountId: req.user.accountId,
+        userId: req.user.userId
+    }
+    let result = await teacherDB.getHomeWorkDetailsForUpdate(getHomeWorkObj);
+    if (result.length > 0) {
+        res.status(200).json({ status: 1, statusDescription: result });
+    } else {
+        res.status(200).json({ status: 0, statusDescription: 'Not able to get the data.' });
+    }
+});
+
+// get homework details
+router.get("/getHomeWorktDetails/:homeWorkObject", isTeacherOrprincipalOrStudent, async (req, res) => {
+    let homeWork = JSON.parse(req.params.homeWorkObject);
+    let getHomeWorkObj = {
+        accountId: req.user.accountId,
+        sessionId: JSON.parse(req.user.configData).sessionId,
+        classId: homeWork.classId,
+        sectionId: homeWork.sectionId,
+        mediumType: homeWork.mediumType,
+        homeWorkDate: homeWork.homeWorkDate
+    }
+    let result = await teacherDB.getHomeWorkDetails(getHomeWorkObj);
+    if (result.length > 0) {
+        let resultObj = [];
+        result.forEach((row) => {
+            resultObj.push({
+                homeWorkId: row.homeWorkId,
+                subjectId: row.subjectId,
+                userId: row.userId,
+                homeWorkDetails: row.homeWorkDetails,
+            });
+        });
+        res.status(200).json({ status: 1, statusDescription: resultObj });
+    } else {
+        res.status(200).json({ status: 0, statusDescription: 'Not able to get the data.' });
+    }
+});
+// delete Home Work
+router.delete("/deleteHomeWork/:homeWorkId", isTeacher, homeWorkIdParams, async (req, res) => {
+    let getHomeWorkObj = {
+        homeWorkId: req.params.homeWorkId,
+        sessionId: JSON.parse(req.user.configData).sessionId,
+        accountId: req.user.accountId,
+        userId: req.user.userId
+    }
+    let result = await teacherDB.deleteHomeWork(getHomeWorkObj);
+    if (result == 1) {
+        res.status(200).json({ status: 1, statusDescription: "Home Work has been deleted successfully." });
+    } else {
+        res.status(200).json({ status: 0, statusDescription: 'Not able to delete the Home Work.' });
+    }
+});
+//************************ */
+//Create student Notice
+router.post("/createNotice", isTeacher, noticeObject, async (req, res) => {
+    let noticeObj = {
+        accountId: req.user.accountId,
+        userId: req.user.userId,
+        sessionId: JSON.parse(req.user.configData).sessionId,
+        noticeDate: req.body.noticeDate,
+        studentNotice: req.body.studentNotice,
+        studentId: req.body.studentId
+    }
+    let result;
+    let createdUpdate = 'created';
+    if (req.body.noticeId) {
+        createdUpdate = 'updated';
+        noticeObj.noticeId = req.body.noticeId;
+        result = await teacherDB.updateNitice(noticeObj);
+    } else {
+        result = await teacherDB.createNotice(noticeObj);
+    }
+    if (result) {
+        res.status(200).json({ status: 1, statusDescription: `Notice has been ${createdUpdate} successfully.` });
+    } else {
+        res.status(200).json({ status: 0, statusDescription: 'Your principal is not assigned you any class.' });
+    }
+});
+
+//get Notice For Update
+router.get("/getNoticeForUpdate/:studentId/:noticeId", isTeacher, isTeacherStudentRelated, async (req, res) => {
+    let getNoticeObj = {
+        sessionId: JSON.parse(req.user.configData).sessionId,
+        accountId: req.user.accountId,
+        userId: req.user.userId,
+        studentId: req.params.studentId,
+        noticeId: req.params.noticeId
+    }
+    let result = await teacherDB.getNoticeForUpdate(getNoticeObj);
+    if (result.length > 0) {
+        res.status(200).json({ status: 1, statusDescription: result });
+    } else {
+        res.status(200).json({ status: 0, statusDescription: 'Not able to get the data.' });
+    }
+});
+//Delete Notice 
+router.delete("/deleteStudentNotice/:studentId/:noticeId", isTeacher, isTeacherStudentRelated, async (req, res) => {
+    let deleteNoticeObj = {
+        sessionId: JSON.parse(req.user.configData).sessionId,
+        accountId: req.user.accountId,
+        userId: req.user.userId,
+        studentId: req.params.studentId,
+        noticeId: req.params.noticeId
+    }
+    let result = await teacherDB.deleteStudentNotice(deleteNoticeObj);
+    if (result == 1) {
+        res.status(200).json({ status: 1, statusDescription: "Notice has been deleted successfully." });
+    } else {
+        res.status(200).json({ status: 0, statusDescription: 'Not able to delete the Notice.' });
+    }
+});
+// get all student Notice
+router.get("/getAllNoticeOfStudent/:studentId", isTeacherOrprincipalOrStudent, studentIdParams, isTeacherStudentRelated, async (req, res) => {
+    let getNoticeObj = {
+        sessionId: JSON.parse(req.user.configData).sessionId,
+        accountId: req.user.accountId,
+        userId: req.user.userId,
+        studentId: req.params.studentId
+    }
+    let result = await teacherDB.getAllNoticeOfStudent(getNoticeObj);
+    if (result.length > 0) {
+        res.status(200).json({ status: 1, statusDescription: result });
+    } else {
+        res.status(200).json({ status: 0, statusDescription: 'Not able to get the data.' });
+    }
+});
+
+//Create Parent Details
+router.post("/createParentDetails", isTeacher, parentDetailsObj, async (req, res) => {
+    let parentDetailsObject = {
+        studentId: req.body.studentId,
+        accountId: req.user.accountId,
+        userId: req.user.userId,
+        motherFirstName: encrypt.encrypt(req.body.motherFirstName),
+        motherLastName: encrypt.encrypt(req.body.motherLastName),
+        motherCellNumber: encrypt.encrypt(req.body.motherCellNumber),
+        motherAAdharNumber: encrypt.encrypt(req.body.motherAAdharNumber),
+        motherOccupation: encrypt.encrypt(req.body.motherOccupation),
+        motherQualification: encrypt.encrypt(req.body.motherQualification),
+        fatherFirstName: encrypt.encrypt(req.body.fatherFirstName),
+        fatherLastName: encrypt.encrypt(req.body.fatherLastName),
+        fatherCellNumber: encrypt.encrypt(req.body.fatherCellNumber),
+        fatherAAdharNumber: encrypt.encrypt(req.body.fatherAAdharNumber),
+        fatherOccupation: encrypt.encrypt(req.body.fatherOccupation),
+        fatherQualification: encrypt.encrypt(req.body.fatherQualification),
+        localGuardianFirstName: encrypt.encrypt(req.body.localGuardianFirstName),
+        localGuardianLastName: encrypt.encrypt(req.body.localGuardianLastName),
+        localGuardianCellNumber: encrypt.encrypt(req.body.localGuardianCellNumber),
+        localGuardianAAdharNumber: encrypt.encrypt(req.body.localGuardianAAdharNumber),
+        localGuardianQualification: encrypt.encrypt(req.body.localGuardianQualification),
+        localGuardianOccupation: encrypt.encrypt(req.body.localGuardianOccupation),
+        siblings: req.body.siblings,
+        siblingsDetails: req.body.siblings == 1 ? JSON.stringify(req.body.siblingsDetails) : null,
+        physicalDisability: req.body.physicalDisability,
+        physicalDisabilityDetails: req.body.physicalDisability == 1 ? req.body.physicalDisabilityDetails : null,
+        currentTreatment: req.body.currentTreatment,
+        currentTreatmentDetails: req.body.currentTreatment == 1 ? req.body.currentTreatmentDetails : null,
+        isStaffChild: req.body.isStaffChild,
+        studentBloodGroup: req.body.studentBloodGroup,
+        isWeekInSubject: JSON.stringify(req.body.isWeekInSubject)
+    }
+    if (req.body.motherImage !== '' && req.body.motherImage != null) {
+        parentDetailsObject.motherImage = req.body.motherImage.replace(/^data:image\/[a-z]+;base64,/, "");
+    }
+    if (req.body.fatherImage !== '' && req.body.fatherImage != null) {
+        parentDetailsObject.fatherImage = req.body.fatherImage.replace(/^data:image\/[a-z]+;base64,/, "");
+    }
+    if (req.body.localGuardianImage !== '' && req.body.localGuardianImage != null) {
+        parentDetailsObject.localGuardianImage = req.body.localGuardianImage.replace(/^data:image\/[a-z]+;base64,/, "");
+    }
+    if (req.body.addressProof !== '' && req.body.addressProof != null) {
+        parentDetailsObject.addressProof = req.body.addressProof.replace(/^data:image\/[a-z]+;base64,/, "");
+    }
+    let result = 0;
+    let createdUpdate = 'created';
+    if (req.body.parentDetailsId) {
+        createdUpdate = 'updated';
+        parentDetailsObject.Id = req.body.parentDetailsId;
+        result = await teacherDB.updateParentDetails(parentDetailsObject);
+    } else {
+        result = await teacherDB.createStudentParentDetails(parentDetailsObject);
+    }
+    if (result) {
+        res.status(200).json({ status: 1, statusDescription: `Parent Details has been ${createdUpdate} successfully.` });
+    } else {
+        res.status(200).json({ status: 0, statusDescription: 'Not able to save the parent details.' });
+    }
+});
+
+// get parent Details of Student
+router.get("/getParentDetailOfStudent/:studentId", isTeacherOrprincipalOrStudent, studentIdParams, isTeacherStudentRelated, async (req, res) => {
+    let getParentDetail = {
+        accountId: req.user.accountId,
+        studentId: req.params.studentId
+    }
+    let result = await teacherDB.getParentDetailsOfStudent(getParentDetail);
+    if (result.length > 0) {
+        let parentObject = {
+            motherFirstName: encrypt.decrypt(result[0].motherFirstName),
+            motherLastName: encrypt.decrypt(result[0].motherLastName),
+            motherCellNumber: encrypt.decrypt(result[0].motherCellNumber),
+            motherAAdharNumber: encrypt.decrypt(result[0].motherAAdharNumber),
+            motherOccupation: encrypt.decrypt(result[0].motherOccupation),
+            motherQualification: encrypt.decrypt(result[0].motherQualification),
+            fatherFirstName: encrypt.decrypt(result[0].fatherFirstName),
+            fatherLastName: encrypt.decrypt(result[0].fatherLastName),
+            fatherCellNumber: encrypt.decrypt(result[0].fatherCellNumber),
+            fatherAAdharNumber: encrypt.decrypt(result[0].fatherAAdharNumber),
+            fatherOccupation: encrypt.decrypt(result[0].fatherOccupation),
+            fatherQualification: encrypt.decrypt(result[0].fatherQualification),
+            localGuardianFirstName: encrypt.decrypt(result[0].localGuardianFirstName),
+            localGuardianLastName: encrypt.decrypt(result[0].localGuardianLastName),
+            localGuardianCellNumber: encrypt.decrypt(result[0].localGuardianCellNumber),
+            localGuardianAAdharNumber: encrypt.decrypt(result[0].localGuardianAAdharNumber),
+            localGuardianQualification: encrypt.decrypt(result[0].localGuardianQualification),
+            localGuardianOccupation: encrypt.decrypt(result[0].localGuardianOccupation),
+            siblings: result[0].siblings,
+            siblingsDetails: JSON.parse(result[0].siblingsDetails),
+            physicalDisability: result[0].physicalDisability,
+            physicalDisabilityDetails: result[0].physicalDisabilityDetails,
+            currentTreatment: result[0].currentTreatment,
+            currentTreatmentDetails: result[0].currentTreatmentDetails,
+            isStaffChild: result[0].isStaffChild,
+            studentBloodGroup: result[0].studentBloodGroup,
+            isWeekInSubject: JSON.parse(result[0].isWeekInSubject),
+            motherImage: result[0].motherImage,
+            fatherImage: result[0].fatherImage,
+            localGuardianImage: result[0].localGuardianImage,
+            addressProof: result[0].addressProof,
+            Id: result[0].Id
+        }
+        res.status(200).json({ status: 1, statusDescription: parentObject });
+    } else {
+        res.status(200).json({ status: 0, statusDescription: 'Not able to get the data.' });
+    }
+});
+
+// get parent Details of Student to Update
+router.get("/getParentDetailOfStudent/:studentId/:parentDetailsId", isTeacher, studentIdAndId, isTeacherStudentRelated, async (req, res) => {
+    let getParentDetail = {
+        accountId: req.user.accountId,
+        userId: req.user.userId,
+        studentId: req.params.studentId,
+        Id: req.params.parentDetailsId
+    }
+    let result = await teacherDB.getParentDetailsOfStudentToUpdate(getParentDetail);
+    if (result.length > 0) {
+        let parentObject = {
+            motherFirstName: encrypt.decrypt(result[0].motherFirstName),
+            motherLastName: encrypt.decrypt(result[0].motherLastName),
+            motherCellNumber: encrypt.decrypt(result[0].motherCellNumber),
+            motherAAdharNumber: encrypt.decrypt(result[0].motherAAdharNumber),
+            motherOccupation: encrypt.decrypt(result[0].motherOccupation),
+            motherQualification: encrypt.decrypt(result[0].motherQualification),
+            fatherFirstName: encrypt.decrypt(result[0].fatherFirstName),
+            fatherLastName: encrypt.decrypt(result[0].fatherLastName),
+            fatherCellNumber: encrypt.decrypt(result[0].fatherCellNumber),
+            fatherAAdharNumber: encrypt.decrypt(result[0].fatherAAdharNumber),
+            fatherOccupation: encrypt.decrypt(result[0].fatherOccupation),
+            fatherQualification: encrypt.decrypt(result[0].fatherQualification),
+            localGuardianFirstName: encrypt.decrypt(result[0].localGuardianFirstName),
+            localGuardianLastName: encrypt.decrypt(result[0].localGuardianLastName),
+            localGuardianCellNumber: encrypt.decrypt(result[0].localGuardianCellNumber),
+            localGuardianAAdharNumber: encrypt.decrypt(result[0].localGuardianAAdharNumber),
+            localGuardianQualification: encrypt.decrypt(result[0].localGuardianQualification),
+            localGuardianOccupation: encrypt.decrypt(result[0].localGuardianOccupation),
+            siblings: result[0].siblings,
+            siblingsDetails: JSON.parse(result[0].siblingsDetails),
+            physicalDisability: result[0].physicalDisability,
+            physicalDisabilityDetails: result[0].physicalDisabilityDetails,
+            currentTreatment: result[0].currentTreatment,
+            currentTreatmentDetails: result[0].currentTreatmentDetails,
+            isStaffChild: result[0].isStaffChild,
+            studentBloodGroup: result[0].studentBloodGroup,
+            isWeekInSubject: JSON.parse(result[0].isWeekInSubject),
+            motherImage: result[0].motherImage,
+            fatherImage: result[0].fatherImage,
+            localGuardianImage: result[0].localGuardianImage,
+            addressProof: result[0].addressProof,
+            Id: result[0].Id
+        }
+        res.status(200).json({ status: 1, statusDescription: parentObject });
+    } else {
+        res.status(200).json({ status: 0, statusDescription: 'Not able to get the data.' });
     }
 });
 /**
@@ -730,13 +1076,13 @@ router.get('/getClassAttendanceOfSelecteddates/:startDate/:endDate',isTeacherOrE
 *                                     type: string
 *                                 localaddress:
 *                                     type: string
-*                                 busservice:
+*                                 busService:
 *                                     type: number
 *                                 route: 
 *                                     type: number
 *                                 images:
 *                                     type: string
-*                                 studentid:
+*                                 studentId:
 *                                     type: number
 *             responses:
 *                 '200':
@@ -747,14 +1093,14 @@ router.get('/getClassAttendanceOfSelecteddates/:startDate/:endDate',isTeacherOrE
 *                                 type: object
 *             security:
 *                - LoginSecurity: []
-*     /teacherservice/updateStudentDetails/{studentid}:
+*     /teacherservice/getStudentDetailsForUpdate/{studentId}:
 *       get:
 *          description: Get Student Details, only access by Class Teacher  
 *          tags: [Faculty Service]
 *          summary: Get Student Details for Edit, only access by Class Teacher  
 *          parameters:
 *              - in: path
-*                name: studentid
+*                name: studentId
 *                required: true
 *                schema:
 *                  type: string
@@ -780,7 +1126,7 @@ router.get('/getClassAttendanceOfSelecteddates/:startDate/:endDate',isTeacherOrE
 *                            schema:
 *                                type: object
 *                                example:
-*                                   userid: ''
+*                                   userId: ''
 *                                   firstname: ''
 *                                   lastname: ''
 *                                   mothername: ''
@@ -794,7 +1140,7 @@ router.get('/getClassAttendanceOfSelecteddates/:startDate/:endDate',isTeacherOrE
 *                                   locality: ''
 *                                   parmanentaddress: ''
 *                                   localaddress: ''
-*                                   busservice: ''
+*                                   busService: ''
 *                                   route: ''
 *                                   images: ''
 *          security:
@@ -812,7 +1158,7 @@ router.get('/getClassAttendanceOfSelecteddates/:startDate/:endDate',isTeacherOrE
 *                            schema:
 *                                type: object
 *                                example:
-*                                   userid: ''
+*                                   userId: ''
 *                                   firstname: ''
 *                                   lastname: ''
 *                                   mothername: ''
@@ -826,12 +1172,12 @@ router.get('/getClassAttendanceOfSelecteddates/:startDate/:endDate',isTeacherOrE
 *                                   locality: ''
 *                                   parmanentaddress: ''
 *                                   localaddress: ''
-*                                   busservice: ''
+*                                   busService: ''
 *                                   route: ''
 *                                   images: ''
 *          security:
 *                - LoginSecurity: []
-*     /teacherservice/getAdharnumber/{adharnumber}:
+*     /teacherservice/getAdharnumber/{aadharNumber}:
 *       get:
 *          description: Verify the AAdhar Number 
 *          tags: [Faculty Service]
@@ -851,7 +1197,7 @@ router.get('/getClassAttendanceOfSelecteddates/:startDate/:endDate',isTeacherOrE
 *                                type: object
 *          security:
 *                - LoginSecurity: []
-*     /teacherservice/getEmailId/{emailid}:
+*     /teacherservice/getEmailId/{emailId}:
 *       get:
 *          description: Verify the emailid 
 *          tags: [Faculty Service]
@@ -897,7 +1243,7 @@ router.get('/getClassAttendanceOfSelecteddates/:startDate/:endDate',isTeacherOrE
 *                         schema:
 *                             type: object
 *                             properties:
-*                                 studentid:
+*                                 studentId:
 *                                     type: number
 *                                 subjectid:
 *                                     type: number
@@ -928,7 +1274,7 @@ router.get('/getClassAttendanceOfSelecteddates/:startDate/:endDate',isTeacherOrE
 *                         schema:
 *                             type: object
 *                             properties:
-*                                 studentid:
+*                                 studentId:
 *                                     type: number
 *                                 monthName:
 *                                     type: number
@@ -1025,7 +1371,7 @@ router.get('/getClassAttendanceOfSelecteddates/:startDate/:endDate',isTeacherOrE
 *                         schema:
 *                             type: object
 *                             properties:
-*                                 studentid:
+*                                 studentId:
 *                                     type: number
 *             responses:
 *                 '200':
@@ -1048,7 +1394,7 @@ router.get('/getClassAttendanceOfSelecteddates/:startDate/:endDate',isTeacherOrE
 *                         schema:
 *                             type: object
 *                             properties:
-*                                 studentid:
+*                                 studentId:
 *                                     type: number
 *             responses:
 *                 '200':
@@ -1059,7 +1405,7 @@ router.get('/getClassAttendanceOfSelecteddates/:startDate/:endDate',isTeacherOrE
 *                                 type: object
 *             security:
 *                - LoginSecurity: []
-*     /teacherservice/getStudentRegistrationDetails/{adharnumber}:
+*     /teacherservice/getStudentRegistrationDetails/{aadharNumber}:
 *      get:
 *          description: Get Student Registration Details, only access by Class Teacher 
 *          tags: [Faculty Service]
@@ -1093,7 +1439,7 @@ router.get('/getClassAttendanceOfSelecteddates/:startDate/:endDate',isTeacherOrE
 *                             properties:
 *                                 accountid:
 *                                     type: string
-*                                 userid:
+*                                 userId:
 *                                     type: number
 *                                 studentId:
 *                                     type: number

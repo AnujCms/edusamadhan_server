@@ -6,7 +6,7 @@ const studentEntrance = Joi.object({
     cellnumber:Joi.string().required().min(10).max(10),
     adharnumber:Joi.string().required().min(12).max(12),
     dob:Joi.date().format('YYYY-MM-DD').raw().required(),
-    class:Joi.number().required().valid(1,2,3,4,5,6,7,8)
+    class:Joi.number().required().valid(1,2,3,4,5,6,7,8,9,10,11,12,13,14,15)
 })
 
 exports.studentEntrance = studentEntrance;
