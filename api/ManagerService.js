@@ -1,5 +1,5 @@
 const router = require('express').Router();
-const managerDB = require("../database/managerDB.js");
+const managerDB = require("../database/ManagerDB.js");
 const UserEnum = require('../lookup/UserEnum');
 const joiSchema = require('../apiJoi/manager.js');
 const middleWare = require('../apiJoi/middleWare.js');
